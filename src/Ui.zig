@@ -85,6 +85,23 @@ pub fn clear(self: *Self) void {
     self.terminal.clearEntireScreen();
 }
 
+const colors = struct {
+    pub const TILE_WHITE = .bright_black;
+    pub const TILE_BLACK = .black;
+
+    pub const PIECE_WHITE = .red;
+    pub const PIECE_BLACK = .cyan;
+
+    pub const AVAILABLE = .bright_white;
+    pub const UNAVAILABLE = .white;
+    pub const ALTERNATIVE = .white;
+
+    pub const PLACEHOLDER = .bright_black;
+    pub const HIGHLIGHT = .yellow;
+
+    pub const REMOTE = .green;
+};
+
 pub fn render(self: *Self, state: *const State) void {
     self.getForeFrame().clear();
 
@@ -94,7 +111,7 @@ pub fn render(self: *Self, state: *const State) void {
             const tile = Tile{ .rank = rank, .file = file };
             self.renderRectSolid(getTileRect(tile), .{
                 .char = ' ',
-                .bg = if (tile.isEven()) .bright_black else .black,
+                .bg = if (tile.isEven()) colors.TILE_WHITE else colors.TILE_BLACK,
             });
         }
     }
@@ -134,7 +151,7 @@ pub fn render(self: *Self, state: *const State) void {
                     tile.rank * tile_size.HEIGHT + 1,
                     tile.file * tile_size.WIDTH + tile_size.PADDING_LEFT + Piece.WIDTH + 1,
                     .{
-                        .fg = .yellow,
+                        .fg = colors.HIGHLIGHT,
                         .bold = true,
                     },
                 );
@@ -152,7 +169,7 @@ pub fn render(self: *Self, state: *const State) void {
             };
 
             self.renderPiece(piece, tile, .{
-                .fg = .bright_black,
+                .fg = colors.PLACEHOLDER,
                 .bold = false,
             });
         }
@@ -179,7 +196,7 @@ pub fn render(self: *Self, state: *const State) void {
             if (state.board.isSideInCheck(side)) {
                 const king = state.board.getKing(side);
                 self.renderRectSolid(getTileRect(king), .{
-                    .bg = .white,
+                    .bg = colors.UNAVAILABLE,
                 });
                 self.renderPiece(.{
                     .kind = .king,
@@ -200,7 +217,7 @@ pub fn render(self: *Self, state: *const State) void {
                         if (state.board.get(available.destination)) |piece| {
                             // Take direct
                             self.renderPiece(piece, available.destination, .{
-                                .fg = .bright_white,
+                                .fg = colors.AVAILABLE,
                             });
                         } else {
                             // No take or take indirect
@@ -208,13 +225,13 @@ pub fn render(self: *Self, state: *const State) void {
                                 continue;
 
                             self.renderPiece(piece, available.destination, .{
-                                .fg = if (available.destination.isEven()) .black else .bright_black,
+                                .fg = if (available.destination.isEven()) colors.TILE_WHITE else colors.TILE_BLACK,
                             });
 
                             // Take indirect
                             if (available.take) |take| {
                                 self.renderPiece(piece, take, .{
-                                    .fg = .white,
+                                    .fg = colors.ALTERNATIVE,
                                 });
                             }
                         }
@@ -222,7 +239,7 @@ pub fn render(self: *Self, state: *const State) void {
                         if (available.move_alt) |move_alt| {
                             const piece = state.board.get(move_alt.origin) orelse unreachable;
                             self.renderPiece(piece, move_alt.origin, .{
-                                .fg = .white,
+                                .fg = colors.ALTERNATIVE,
                             });
                         }
                     }
@@ -233,7 +250,7 @@ pub fn render(self: *Self, state: *const State) void {
 
                     if (state.board.get(selected)) |piece| {
                         self.renderPiece(piece, selected, .{
-                            .fg = if (has_available) .black else .white,
+                            .fg = if (has_available) colors.TILE_BLACK else colors.UNAVAILABLE,
                         });
                     }
                 }
@@ -243,12 +260,12 @@ pub fn render(self: *Self, state: *const State) void {
             if (state.player_remote) |player_remote| {
                 if (player_remote.selected) |selected| {
                     self.renderRectSolid(getTileRect(selected), .{
-                        .bg = .green,
+                        .bg = colors.REMOTE,
                     });
 
                     if (state.board.get(selected)) |piece| {
                         self.renderPiece(piece, selected, .{
-                            .fg = .black,
+                            .fg = colors.TILE_BLACK,
                         });
                     }
                 }
@@ -265,9 +282,9 @@ pub fn render(self: *Self, state: *const State) void {
             // Focus, local
             self.renderRectHighlight(getTileRect(state.player_local.focus), .{
                 .fg = if (state.isSelfActive())
-                    if (state.role == .host) .red else .cyan
+                    getSideColor(side)
                 else
-                    .white,
+                    colors.UNAVAILABLE,
                 .bold = true,
             });
         },
@@ -403,7 +420,7 @@ fn renderPiece(self: *Self, piece: Piece, tile: Tile, options: Cell.Options) voi
 }
 
 fn getSideColor(side: State.Side) Color {
-    return if (side == .white) .red else .cyan;
+    return if (side == .white) colors.PIECE_WHITE else colors.PIECE_BLACK;
 }
 
 fn getTileRect(tile: Tile) Rect {
