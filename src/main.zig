@@ -27,6 +27,13 @@ pub fn main() !void {
     // Restore terminal, if anything goes wrong
     errdefer ui.exit() catch unreachable;
 
+    const action = std.posix.Sigaction{
+        .handler = .{ .handler = handleSignal },
+        .mask = std.posix.sigemptyset(),
+        .flags = 0,
+    };
+    std.posix.sigaction(std.posix.SIG.WINCH, &action, null);
+
     {
         var shared = Shared{
             .state = state,
@@ -44,6 +51,11 @@ pub fn main() !void {
 
     // Don't `defer`, so that error can be returned if possible
     try ui.exit();
+}
+
+fn handleSignal(sig_num: c_int) callconv(.c) void {
+    _ = sig_num;
+    EVENTS.push(.redraw);
 }
 
 var EVENTS = Queue.init();
