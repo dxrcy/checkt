@@ -4,6 +4,7 @@ const fs = std.fs;
 const posix = std.posix;
 const Thread = std.Thread;
 
+const Args = @import("Args.zig");
 const Channel = @import("Channel.zig");
 const Board = @import("Board.zig");
 const State = @import("State.zig");
@@ -11,55 +12,24 @@ const Ui = @import("Ui.zig");
 const Connection = @import("Connection.zig");
 
 pub fn main() !u8 {
-    var args = std.process.args();
-    _ = args.next();
-
-    var ascii = false;
-    var dummy = false;
-    var role_opt: ?State.Role = null;
-
-    while (args.next()) |arg| {
-        if (std.mem.eql(u8, arg, "--ascii")) {
-            ascii = true;
-        }
-        if (std.mem.eql(u8, arg, "--dummy")) {
-            dummy = true;
-        }
-        if (std.mem.eql(u8, arg, "host")) {
-            if (role_opt != null) {
-                std.log.err("invalid argument\n", .{});
-                return 1;
-            }
-            role_opt = .host;
-        }
-        if (std.mem.eql(u8, arg, "join")) {
-            if (role_opt != null) {
-                std.log.err("invalid argument\n", .{});
-                return 1;
-            }
-            role_opt = .join;
-        }
-    }
-
-    const role = role_opt orelse {
-        std.log.err("missing argument\n", .{});
+    const args = Args.parse() orelse {
         return 1;
     };
 
-    var conn = switch (role) {
+    var conn = switch (args.role) {
         .host => try Connection.newServer(),
         .join => Connection.newClient(),
     };
-    if (role == .host) {
+    if (args.role == .host) {
         std.log.info("waiting for client to join...\n", .{});
     }
-    conn.dummy = dummy;
+    conn.dummy = args.dummy;
     try conn.init();
     defer conn.deinit();
 
-    const state = State.new(role);
+    const state = State.new(args.role);
 
-    var ui = Ui.new(ascii);
+    var ui = Ui.new(args.ascii);
     try ui.enter();
     // Restore terminal, if anything goes wrong
     errdefer ui.exit() catch unreachable;

@@ -14,7 +14,6 @@ reader: net.Stream.Reader,
 write_buffer: [WRITE_BUFFER_SIZE]u8,
 read_buffer: [READ_BUFFER_SIZE]u8,
 
-// DEBUG
 dummy: bool = false,
 
 const ADDRESS = net.Address.parseIp4("127.0.0.1", 5720) catch unreachable;
