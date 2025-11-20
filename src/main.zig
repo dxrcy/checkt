@@ -58,10 +58,8 @@ fn handleSignal(sig_num: c_int) callconv(.c) void {
     EVENTS.push(.redraw);
 }
 
-var EVENTS = Queue.init();
+var EVENTS = Mpsc.init();
 
-// FIXME: Make thread-safe
-// TODO: Rename
 // PERF: Convert to ring buffer
 const Queue = struct {
     const Self = @This();
@@ -70,12 +68,6 @@ const Queue = struct {
 
     buffer: [BUFFER_SIZE]Item,
     length: usize,
-
-    mutex: Thread.Mutex,
-    // TODO: Rename
-    push_condition: Thread.Condition,
-    // TODO: Rename
-    pop_condition: Thread.Condition,
 
     const Item = enum {
         redraw,
@@ -86,6 +78,41 @@ const Queue = struct {
         return Self{
             .buffer = undefined,
             .length = 0,
+        };
+    }
+
+    pub fn push(self: *Self, item: Item) void {
+        self.buffer[self.length] = item;
+        self.length += 1;
+    }
+
+    pub fn pop(self: *Self) Item {
+        assert(self.length > 0);
+
+        const item = self.buffer[0];
+        self.length -= 1;
+        for (0..self.length) |i| {
+            self.buffer[i] = self.buffer[i + 1];
+        }
+        return item;
+    }
+};
+
+// TODO: Rename
+const Mpsc = struct {
+    const Self = @This();
+
+    queue: Queue,
+
+    mutex: Thread.Mutex,
+    // TODO: Rename
+    push_condition: Thread.Condition,
+    // TODO: Rename
+    pop_condition: Thread.Condition,
+
+    pub fn init() Self {
+        return Self{
+            .queue = Queue.init(),
             .mutex = .{},
             .push_condition = .{},
             .pop_condition = .{},
@@ -93,34 +120,29 @@ const Queue = struct {
     }
 
     // TODO: Rename
-    pub fn push(self: *Self, item: Item) void {
+    pub fn push(self: *Self, item: Queue.Item) void {
         self.mutex.lock();
         defer self.mutex.unlock();
 
-        while (self.length >= BUFFER_SIZE) {
+        while (self.queue.length >= Queue.BUFFER_SIZE) {
             self.push_condition.wait(&self.mutex);
         }
 
-        self.buffer[self.length] = item;
-        self.length += 1;
+        self.queue.push(item);
 
         self.pop_condition.signal();
     }
 
     // TODO: Rename
-    pub fn pop(self: *Self) Item {
+    pub fn pop(self: *Self) Queue.Item {
         self.mutex.lock();
         defer self.mutex.unlock();
 
-        while (self.length == 0) {
+        while (self.queue.length == 0) {
             self.pop_condition.wait(&self.mutex);
         }
 
-        const item = self.buffer[0];
-        self.length -= 1;
-        for (0..self.length) |i| {
-            self.buffer[i] = self.buffer[i + 1];
-        }
+        const item = self.queue.pop();
 
         self.push_condition.signal();
 
