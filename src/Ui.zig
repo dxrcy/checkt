@@ -259,24 +259,28 @@ pub fn render(self: *Self, state: *const State) void {
         },
     }
 
-    self.renderTextLineNormal(
-        if (state.role == .host) "host" else "join",
-        0,
-        0,
-        .{},
-    );
-    self.renderTextLineNormal(
-        if (state.status.play == .white) "white" else "black",
-        1,
-        0,
-        .{},
-    );
-    self.renderTextLineNormal(
-        if (state.simulating_other) "other" else "self",
-        2,
-        0,
-        .{},
-    );
+    var buffer: [10]u8 = undefined;
+    const string = std.fmt.bufPrint(&buffer, "{}", .{state.count}) catch unreachable;
+    self.renderTextLineNormal(string, 0, 0, .{});
+
+    // self.renderTextLineNormal(
+    //     if (state.role == .host) "host" else "join",
+    //     0,
+    //     0,
+    //     .{},
+    // );
+    // self.renderTextLineNormal(
+    //     if (state.status.play == .white) "white" else "black",
+    //     1,
+    //     0,
+    //     .{},
+    // );
+    // self.renderTextLineNormal(
+    //     if (state.simulating_other) "other" else "self",
+    //     2,
+    //     0,
+    //     .{},
+    // );
 }
 
 fn renderTextLineNormal(

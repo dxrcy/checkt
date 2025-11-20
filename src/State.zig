@@ -18,6 +18,7 @@ player_remote: ?Player,
 
 // DEBUG
 simulating_other: bool,
+count: u32,
 
 pub const Role = enum {
     host,
@@ -53,6 +54,7 @@ pub fn new(role: Role) Self {
         .player_local = undefined,
         .player_remote = undefined,
         .simulating_other = undefined,
+        .count = undefined,
     };
     self.resetGame();
     return self;
@@ -71,6 +73,7 @@ pub fn resetGame(self: *Self) void {
     };
 
     self.simulating_other = false;
+    self.count = 0;
 }
 
 pub fn moveFocus(self: *Self, direction: enum { left, right, up, down }) void {

@@ -46,6 +46,7 @@ pub fn main() !u8 {
         .host => try Connection.connectServer(),
         .join => try Connection.connectClient(),
     };
+    conn.init();
     defer conn.deinit();
 
     const state = State.new(role);
@@ -66,15 +67,20 @@ pub fn main() !u8 {
         var shared = Shared{
             .state = state,
             .ui = ui,
+            .connection = &conn,
         };
 
         const render_thread = try Thread.spawn(.{}, render_worker, .{&shared});
         const input_thread = try Thread.spawn(.{}, input_worker, .{&shared});
+        const recv_thread = try Thread.spawn(.{}, recv_worker, .{&shared});
+        const temp_thread = try Thread.spawn(.{}, temp_worker, .{&shared});
 
         // Wait
         input_thread.join();
         // Cancel
         _ = render_thread;
+        _ = recv_thread;
+        _ = temp_thread;
     }
 
     // Don't `defer`, so that error can be returned if possible
@@ -91,8 +97,10 @@ fn handleSignal(sig_num: c_int) callconv(.c) void {
 var EVENTS = Channel.init();
 
 const Shared = struct {
+    // TODO: Use pointers?
     state: State,
     ui: Ui,
+    connection: *Connection,
 };
 
 fn render_worker(shared: *Shared) void {
@@ -169,5 +177,31 @@ fn input_worker(shared: *Shared) !void {
         }
 
         EVENTS.send(.update);
+    }
+}
+
+fn recv_worker(shared: *Shared) !void {
+    while (true) {
+        const message = try shared.connection.recv();
+        switch (message) {
+            .count => |count| {
+                shared.state.count = count;
+                EVENTS.send(.update);
+            },
+        }
+    }
+}
+
+fn temp_worker(shared: *Shared) !void {
+    if (shared.state.role != .host) {
+        return;
+    }
+
+    while (true) {
+        Thread.sleep(500 * std.time.ns_per_ms);
+        shared.state.count += 1;
+
+        EVENTS.send(.update);
+        try shared.connection.send(.{ .count = shared.state.count });
     }
 }
