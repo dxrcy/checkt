@@ -87,6 +87,7 @@ pub fn recv(self: *Self) !Message {
 
     var reader = self.reader.interface();
 
+    // TODO: Handle malformed messages
     const discriminant = try reader.takeByte();
     switch (discriminant) {
         1 => {
@@ -102,15 +103,33 @@ pub fn recv(self: *Self) !Message {
             const selected_rank = try reader.takeInt(u32, ENDIAN);
             const selected_file = try reader.takeInt(u32, ENDIAN);
 
-            const player = State.Player{
+            return .{ .player = State.Player{
                 .focus = .{ .rank = focus_rank, .file = focus_file },
                 .selected = if (selected_set)
                     .{ .rank = selected_rank, .file = selected_file }
                 else
                     null,
-            };
+            } };
+        },
 
-            return .{ .player = player };
+        3 => {
+            const tile_rank = try reader.takeInt(u32, ENDIAN);
+            const tile_file = try reader.takeInt(u32, ENDIAN);
+
+            const piece_set = try reader.takeByte() != 0;
+            const piece_kind = try reader.takeInt(u8, ENDIAN);
+            const piece_side = try reader.takeInt(u8, ENDIAN);
+
+            return .{ .piece = .{
+                .tile = .{ .rank = tile_rank, .file = tile_file },
+                .piece = if (piece_set)
+                    .{
+                        .kind = @enumFromInt(piece_kind),
+                        .side = @enumFromInt(piece_side),
+                    }
+                else
+                    null,
+            } };
         },
 
         else => return error.InvalidMessage,
@@ -119,8 +138,13 @@ pub fn recv(self: *Self) !Message {
 
 // TODO: Move to new file
 // TODO: Move deserialization to member function here
+// TODO: Use functions for common ser/de (eg. Tile)
 pub const Message = union(enum) {
     player: State.Player,
+    piece: struct {
+        tile: State.Tile,
+        piece: ?State.Piece,
+    },
 
     // DEBUG
     count: u32,
@@ -147,6 +171,22 @@ pub const Message = union(enum) {
                     try writer.writeByte(0);
                     try writer.writeInt(u32, 0, ENDIAN);
                     try writer.writeInt(u32, 0, ENDIAN);
+                }
+            },
+
+            .piece => |update| {
+                try writer.writeByte(3);
+                try writer.writeInt(u32, @intCast(update.tile.rank), ENDIAN);
+                try writer.writeInt(u32, @intCast(update.tile.file), ENDIAN);
+                if (update.piece) |piece| {
+                    try writer.writeByte(1);
+                    // TODO: Maybe dangerous using automatic discriminant
+                    try writer.writeInt(u8, @intFromEnum(piece.kind), ENDIAN);
+                    try writer.writeInt(u8, @intFromEnum(piece.side), ENDIAN);
+                } else {
+                    try writer.writeByte(0);
+                    try writer.writeInt(u8, 0, ENDIAN);
+                    try writer.writeInt(u8, 0, ENDIAN);
                 }
             },
         }

@@ -171,13 +171,17 @@ fn input_worker(shared: *Shared) !void {
                 const piece_current = state.board.get(tile);
                 const piece_previous = previous_state.board.get(tile);
                 if (piece_current != piece_previous) {
-                    // TODO:
+                    try shared.connection.send(.{ .piece = .{
+                        .tile = tile,
+                        .piece = piece_current,
+                    } });
                 }
             }
         }
     }
 }
 
+// FIXME: Lock state on modification
 fn recv_worker(shared: *Shared) !void {
     while (true) {
         const message = try shared.connection.recv();
@@ -189,6 +193,11 @@ fn recv_worker(shared: *Shared) !void {
 
             .player => |player| {
                 shared.state.player_remote = player;
+                EVENTS.send(.update);
+            },
+
+            .piece => |update| {
+                shared.state.board.set(update.tile, update.piece);
                 EVENTS.send(.update);
             },
         }
