@@ -21,13 +21,11 @@ const READ_BUFFER_SIZE = 1024;
 
 const ENDIAN = std.builtin.Endian.big;
 
-pub fn connectServer() !Self {
-    var server = try ADDRESS.listen(.{});
-    std.log.info("waiting for client to join...\n", .{});
-    const connection = try server.accept();
+pub fn newServer() !Self {
+    const server = try ADDRESS.listen(.{});
     return Self{
         .server = server,
-        .stream = connection.stream,
+        .stream = undefined,
         .writer = undefined,
         .reader = undefined,
         .write_buffer = undefined,
@@ -35,11 +33,10 @@ pub fn connectServer() !Self {
     };
 }
 
-pub fn connectClient() !Self {
-    const stream = try net.tcpConnectToAddress(ADDRESS);
+pub fn newClient() Self {
     return Self{
         .server = null,
-        .stream = stream,
+        .stream = undefined,
         .writer = undefined,
         .reader = undefined,
         .write_buffer = undefined,
@@ -47,7 +44,12 @@ pub fn connectClient() !Self {
     };
 }
 
-pub fn init(self: *Self) void {
+pub fn init(self: *Self) !void {
+    self.stream = if (self.server) |*server|
+        (try server.accept()).stream
+    else
+        try net.tcpConnectToAddress(ADDRESS);
+
     self.writer = self.stream.writer(&self.write_buffer);
     self.reader = self.stream.reader(&self.read_buffer);
 }

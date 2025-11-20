@@ -43,10 +43,13 @@ pub fn main() !u8 {
     };
 
     var conn = switch (role) {
-        .host => try Connection.connectServer(),
-        .join => try Connection.connectClient(),
+        .host => try Connection.newServer(),
+        .join => Connection.newClient(),
     };
-    conn.init();
+    if (role == .host) {
+        std.log.info("waiting for client to join...\n", .{});
+    }
+    try conn.init();
     defer conn.deinit();
 
     const state = State.new(role);
