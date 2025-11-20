@@ -77,7 +77,7 @@ pub fn main() !u8 {
                 state.toggleSelection(false);
             },
             0x1b => if (state.status == .play) {
-                state.selected = null;
+                state.player_self.selected = null;
             },
 
             'r' => if (state.status == .win) {
@@ -87,7 +87,7 @@ pub fn main() !u8 {
             't' => switch (state.status) {
                 .play => |*player| {
                     player.* = player.flip();
-                    state.selected = null;
+                    state.player_self.selected = null;
                 },
                 else => {},
             },

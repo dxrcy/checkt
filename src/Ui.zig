@@ -187,7 +187,7 @@ pub fn render(self: *Self, state: *const State) void {
             }
 
             // Selected, available moves
-            if (state.selected) |selected| {
+            if (state.player_self.selected) |selected| {
                 var available_moves = state.board.getAvailableMoves(selected);
                 var has_available = false;
                 while (available_moves.next()) |available| {
@@ -236,7 +236,13 @@ pub fn render(self: *Self, state: *const State) void {
             }
 
             // Focus
-            self.renderRectHighlight(getTileRect(state.focus), .{
+            if (state.player_other) |player_other| {
+                self.renderRectHighlight(getTileRect(player_other.focus), .{
+                    .fg = .green,
+                    .bold = true,
+                });
+            }
+            self.renderRectHighlight(getTileRect(state.player_self.focus), .{
                 .fg = if (player == .white) .cyan else .red,
                 .bold = true,
             });

@@ -12,14 +12,21 @@ const Move = moves.Move;
 
 status: Status,
 board: Board,
-focus: Tile,
-selected: ?Tile,
+player_self: PlayerState,
+player_other: ?PlayerState,
+
+// TODO: Rename
+const PlayerState = struct {
+    focus: Tile,
+    selected: ?Tile,
+};
 
 const Status = union(enum) {
     play: Player,
     win: Player,
 };
 
+// TODO: Rename
 pub const Player = enum(u1) {
     white = 0,
     black = 1,
@@ -40,56 +47,68 @@ pub fn new() Self {
 pub fn resetGame(self: *Self) void {
     self.status = .{ .play = .white };
     self.board = Board.new();
-    self.focus = .{ .rank = 3, .file = 3 };
-    self.selected = null;
+    self.player_self = .{
+        .focus = .{ .rank = 5, .file = 3 },
+        .selected = null,
+    };
+    self.player_other = .{
+        .focus = .{ .rank = 3, .file = 3 },
+        .selected = null,
+    };
 }
 
 pub fn moveFocus(self: *Self, direction: enum { left, right, up, down }) void {
     assert(self.status == .play);
 
+    const tile = &self.player_self.focus;
+
     switch (direction) {
-        .left => if (self.focus.file == 0) {
-            self.focus.file = Board.SIZE - 1;
+        .left => if (tile.file == 0) {
+            tile.file = Board.SIZE - 1;
         } else {
-            self.focus.file -= 1;
+            tile.file -= 1;
         },
-        .right => if (self.focus.file >= Board.SIZE - 1) {
-            self.focus.file = 0;
+        .right => if (tile.file >= Board.SIZE - 1) {
+            tile.file = 0;
         } else {
-            self.focus.file += 1;
+            tile.file += 1;
         },
-        .up => if (self.focus.rank == 0) {
-            self.focus.rank = Board.SIZE - 1;
+        .up => if (tile.rank == 0) {
+            tile.rank = Board.SIZE - 1;
         } else {
-            self.focus.rank -= 1;
+            tile.rank -= 1;
         },
-        .down => if (self.focus.rank >= Board.SIZE - 1) {
-            self.focus.rank = 0;
+        .down => if (tile.rank >= Board.SIZE - 1) {
+            tile.rank = 0;
         } else {
-            self.focus.rank += 1;
+            tile.rank += 1;
         },
     }
 }
 
 // TODO: Rename
 pub fn toggleSelection(self: *Self, allow_invalid: bool) void {
+    // TODO: Rename
     const player = switch (self.status) {
         .play => |player| player,
         else => unreachable,
     };
 
-    const selected = self.selected orelse {
-        const piece = self.board.get(self.focus);
+    // TODO: Rename
+    const player_state = &self.player_self;
+
+    const selected = player_state.selected orelse {
+        const piece = self.board.get(player_state.focus);
         if (piece != null and
             piece.?.player == player)
         {
-            self.selected = self.focus;
+            player_state.selected = player_state.focus;
         }
         return;
     };
 
-    if (selected.eql(self.focus)) {
-        self.selected = null;
+    if (selected.eql(player_state.focus)) {
+        player_state.selected = null;
         return;
     }
 
@@ -97,24 +116,24 @@ pub fn toggleSelection(self: *Self, allow_invalid: bool) void {
     assert(piece.?.player == player);
 
     if (allow_invalid) {
-        if (self.board.get(self.focus)) |piece_taken| {
+        if (self.board.get(player_state.focus)) |piece_taken| {
             self.board.addTaken(piece_taken);
         }
-        self.board.set(self.focus, piece);
+        self.board.set(player_state.focus, piece);
         self.board.set(selected, null);
-        self.selected = null;
+        player_state.selected = null;
         if (!self.updateStatus()) {
             self.status = .{ .play = player.flip() };
         }
         return;
     }
 
-    const move = self.getAvailableMove(selected, self.focus) orelse
+    const move = self.getAvailableMove(selected, player_state.focus) orelse
         return;
-    assert(move.destination.eql(self.focus));
+    assert(move.destination.eql(player_state.focus));
 
     self.board.applyMove(selected, move);
-    self.selected = null;
+    player_state.selected = null;
 
     if (!self.updateStatus()) {
         self.status = .{ .play = player.flip() };
