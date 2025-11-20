@@ -239,16 +239,30 @@ pub fn render(self: *Self, state: *const State) void {
                 }
             }
 
-            // Focus
-            if (state.player_remote) |player_other| {
-                self.renderRectHighlight(getTileRect(player_other.focus), .{
-                    .fg = if (state.simulating_other)
+            // Focus, remote
+            if (state.player_remote) |player_remote| {
+                if (player_remote.selected) |selected| {
+                    self.renderRectSolid(getTileRect(selected), .{
+                        .bg = .green,
+                    });
+
+                    if (state.board.get(selected)) |piece| {
+                        self.renderPiece(piece, selected, .{
+                            .fg = .black,
+                        });
+                    }
+                }
+
+                self.renderRectHighlight(getTileRect(player_remote.focus), .{
+                    .fg = if (state.simulating_remote)
                         .magenta
                     else
                         .green,
                     .bold = true,
                 });
             }
+
+            // Focus, local
             self.renderRectHighlight(getTileRect(state.player_local.focus), .{
                 .fg = if (state.isSelfActive())
                     if (state.role == .host) .red else .cyan
@@ -276,7 +290,7 @@ pub fn render(self: *Self, state: *const State) void {
     //     .{},
     // );
     // self.renderTextLineNormal(
-    //     if (state.simulating_other) "other" else "self",
+    //     if (state.simulating_remote) "other" else "self",
     //     2,
     //     0,
     //     .{},

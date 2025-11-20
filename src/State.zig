@@ -17,7 +17,7 @@ player_local: Player,
 player_remote: ?Player,
 
 // DEBUG
-simulating_other: bool,
+simulating_remote: bool,
 count: u32,
 
 pub const Role = enum {
@@ -53,7 +53,7 @@ pub fn new(role: Role) Self {
         .board = undefined,
         .player_local = undefined,
         .player_remote = undefined,
-        .simulating_other = undefined,
+        .simulating_remote = undefined,
         .count = undefined,
     };
     self.resetGame();
@@ -72,7 +72,7 @@ pub fn resetGame(self: *Self) void {
         .selected = null,
     };
 
-    self.simulating_other = false;
+    self.simulating_remote = false;
     self.count = 0;
 }
 
@@ -113,15 +113,12 @@ pub fn toggleSelection(self: *Self, allow_invalid: bool) void {
         else => unreachable,
     };
 
-    if (self.isSelfActive() == self.simulating_other) {
+    if (self.isSelfActive() == self.simulating_remote) {
         return;
     }
 
     const player = self.getCurrentPlayer() orelse
         return;
-
-    // const side = .black;
-    // const player = &self.player_other;
 
     const selected = player.selected orelse {
         const piece = self.board.get(player.focus);
@@ -166,20 +163,20 @@ pub fn toggleSelection(self: *Self, allow_invalid: bool) void {
     }
 }
 
-// TODO: Remove? Once `simulating_other` is removed
+// TODO: Remove? Once `simulating_remote` is removed
 pub fn getCurrentPlayer(self: *Self) ?*Player {
-    if (self.simulating_other) {
-        if (self.player_remote) |*player_other| {
-            return player_other;
+    if (self.simulating_remote) {
+        if (self.player_remote) |*player_remote| {
+            return player_remote;
         }
         return null;
     }
     return &self.player_local;
 }
 pub fn getCurrentPlayerConst(self: *const Self) ?*const Player {
-    if (self.simulating_other) {
-        if (self.player_remote) |*player_other| {
-            return player_other;
+    if (self.simulating_remote) {
+        if (self.player_remote) |*player_remote| {
+            return player_remote;
         }
         return null;
     }

@@ -77,10 +77,19 @@ pub fn recv(self: *Self) !Message {
         2 => {
             const focus_rank = try reader.takeInt(u32, ENDIAN);
             const focus_file = try reader.takeInt(u32, ENDIAN);
+
+            const selected_set = try reader.takeByte() != 0;
+            const selected_rank = try reader.takeInt(u32, ENDIAN);
+            const selected_file = try reader.takeInt(u32, ENDIAN);
+
             const player = State.Player{
                 .focus = .{ .rank = focus_rank, .file = focus_file },
-                .selected = null,
+                .selected = if (selected_set)
+                    .{ .rank = selected_rank, .file = selected_file }
+                else
+                    null,
             };
+
             return .{ .player = player };
         },
 
@@ -110,6 +119,15 @@ pub const Message = union(enum) {
                 try writer.writeByte(2);
                 try writer.writeInt(u32, @intCast(player.focus.rank), ENDIAN);
                 try writer.writeInt(u32, @intCast(player.focus.file), ENDIAN);
+                if (player.selected) |selected| {
+                    try writer.writeByte(1);
+                    try writer.writeInt(u32, @intCast(selected.rank), ENDIAN);
+                    try writer.writeInt(u32, @intCast(selected.file), ENDIAN);
+                } else {
+                    try writer.writeByte(0);
+                    try writer.writeInt(u32, 0, ENDIAN);
+                    try writer.writeInt(u32, 0, ENDIAN);
+                }
             },
         }
     }

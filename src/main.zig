@@ -152,8 +152,8 @@ fn input_worker(shared: *Shared) !void {
                 .play => |*side| {
                     side.* = side.flip();
                     state.player_local.selected = null;
-                    if (state.player_remote) |*player_other| {
-                        player_other.selected = null;
+                    if (state.player_remote) |*player_remote| {
+                        player_remote.selected = null;
                     }
                 },
                 else => {},
@@ -164,10 +164,10 @@ fn input_worker(shared: *Shared) !void {
 
             'o' => {
                 state.player_local.selected = null;
-                if (state.player_remote) |*player_other| {
-                    player_other.selected = null;
+                if (state.player_remote) |*player_remote| {
+                    player_remote.selected = null;
                 }
-                state.simulating_other ^= true;
+                state.simulating_remote ^= true;
             },
             'p' => {
                 shared.ui.show_debug ^= true;
