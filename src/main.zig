@@ -55,16 +55,16 @@ pub fn main() !void {
 
 fn handleSignal(sig_num: c_int) callconv(.c) void {
     _ = sig_num;
-    EVENTS.push(.redraw);
+    EVENTS.send(.redraw);
 }
 
-var EVENTS = Mpsc.init();
+var EVENTS = Channel.init();
 
 // PERF: Convert to ring buffer
 const Queue = struct {
     const Self = @This();
 
-    const BUFFER_SIZE = 4;
+    const BUFFER_SIZE = 32;
 
     buffer: [BUFFER_SIZE]Item,
     length: usize,
@@ -98,54 +98,46 @@ const Queue = struct {
     }
 };
 
-// TODO: Rename
-const Mpsc = struct {
+const Channel = struct {
     const Self = @This();
 
     queue: Queue,
 
     mutex: Thread.Mutex,
-    // TODO: Rename
-    push_condition: Thread.Condition,
-    // TODO: Rename
-    pop_condition: Thread.Condition,
+    can_send: Thread.Condition,
+    can_recv: Thread.Condition,
 
     pub fn init() Self {
         return Self{
             .queue = Queue.init(),
             .mutex = .{},
-            .push_condition = .{},
-            .pop_condition = .{},
+            .can_send = .{},
+            .can_recv = .{},
         };
     }
 
-    // TODO: Rename
-    pub fn push(self: *Self, item: Queue.Item) void {
+    pub fn send(self: *Self, item: Queue.Item) void {
         self.mutex.lock();
         defer self.mutex.unlock();
 
         while (self.queue.length >= Queue.BUFFER_SIZE) {
-            self.push_condition.wait(&self.mutex);
+            self.can_send.wait(&self.mutex);
         }
 
         self.queue.push(item);
-
-        self.pop_condition.signal();
+        self.can_recv.signal();
     }
 
-    // TODO: Rename
-    pub fn pop(self: *Self) Queue.Item {
+    pub fn recv(self: *Self) Queue.Item {
         self.mutex.lock();
         defer self.mutex.unlock();
 
         while (self.queue.length == 0) {
-            self.pop_condition.wait(&self.mutex);
+            self.can_recv.wait(&self.mutex);
         }
 
         const item = self.queue.pop();
-
-        self.push_condition.signal();
-
+        self.can_send.signal();
         return item;
     }
 };
@@ -156,10 +148,10 @@ const Shared = struct {
 };
 
 fn render_worker(shared: *Shared) void {
-    EVENTS.push(.update);
+    EVENTS.send(.update);
 
     while (true) {
-        const event = EVENTS.pop();
+        const event = EVENTS.recv();
         switch (event) {
             .redraw => shared.ui.clear(),
             .update => {},
@@ -218,6 +210,6 @@ fn input_worker(shared: *Shared) !void {
             else => {},
         }
 
-        EVENTS.push(.update);
+        EVENTS.send(.update);
     }
 }
