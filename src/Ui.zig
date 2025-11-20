@@ -80,10 +80,7 @@ pub fn exit(self: *Self) !void {
 }
 
 pub fn render(self: *Self, state: *const State) void {
-    // Clear entire frame
-    for (&self.getForeFrame().cells) |*cell| {
-        cell.* = .{};
-    }
+    self.getForeFrame().clear();
 
     // Board tile
     for (0..Board.SIZE) |rank| {

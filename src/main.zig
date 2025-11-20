@@ -57,6 +57,7 @@ const Queue = struct {
     const BUFFER_SIZE = 4;
 
     const Item = enum {
+        redraw,
         update,
     };
 
@@ -92,6 +93,9 @@ fn render_worker(shared: *Shared) void {
     while (true) {
         const event = shared.events.pop();
         switch (event) {
+            .redraw => {
+                shared.ui.getBackFrame().clear();
+            },
             .update => {},
         }
 
