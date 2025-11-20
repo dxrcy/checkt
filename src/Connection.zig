@@ -14,6 +14,9 @@ reader: net.Stream.Reader,
 write_buffer: [WRITE_BUFFER_SIZE]u8,
 read_buffer: [READ_BUFFER_SIZE]u8,
 
+// DEBUG
+dummy: bool = false,
+
 const ADDRESS = net.Address.parseIp4("127.0.0.1", 5720) catch unreachable;
 
 const WRITE_BUFFER_SIZE = 1024;
@@ -45,6 +48,10 @@ pub fn newClient() Self {
 }
 
 pub fn init(self: *Self) !void {
+    if (self.dummy) {
+        return;
+    }
+
     self.stream = if (self.server) |*server|
         (try server.accept()).stream
     else
@@ -55,6 +62,10 @@ pub fn init(self: *Self) !void {
 }
 
 pub fn deinit(self: *Self) void {
+    if (self.dummy) {
+        return;
+    }
+
     self.stream.close();
     if (self.server) |*server| {
         server.deinit();
@@ -62,11 +73,19 @@ pub fn deinit(self: *Self) void {
 }
 
 pub fn send(self: *Self, message: Message) !void {
+    if (self.dummy) {
+        return;
+    }
+
     try self.writer.interface.print("{f}", .{message});
     try self.writer.interface.flush();
 }
 
 pub fn recv(self: *Self) !Message {
+    if (self.dummy) {
+        waitForever();
+    }
+
     var reader = self.reader.interface();
 
     const discriminant = try reader.takeByte();
@@ -134,3 +153,12 @@ pub const Message = union(enum) {
         }
     }
 };
+
+fn waitForever() noreturn {
+    var mutex = std.Thread.Mutex{};
+    mutex.lock();
+    defer mutex.unlock();
+    var condition = std.Thread.Condition{};
+    condition.wait(&mutex);
+    unreachable;
+}

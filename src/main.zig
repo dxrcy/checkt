@@ -15,11 +15,15 @@ pub fn main() !u8 {
     _ = args.next();
 
     var ascii = false;
+    var dummy = false;
     var role_opt: ?State.Role = null;
 
     while (args.next()) |arg| {
         if (std.mem.eql(u8, arg, "--ascii")) {
             ascii = true;
+        }
+        if (std.mem.eql(u8, arg, "--dummy")) {
+            dummy = true;
         }
         if (std.mem.eql(u8, arg, "host")) {
             if (role_opt != null) {
@@ -49,6 +53,7 @@ pub fn main() !u8 {
     if (role == .host) {
         std.log.info("waiting for client to join...\n", .{});
     }
+    conn.dummy = dummy;
     try conn.init();
     defer conn.deinit();
 
