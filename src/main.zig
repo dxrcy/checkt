@@ -70,7 +70,7 @@ pub fn main() !u8 {
                 state.toggleSelection(false);
             },
             0x1b => if (state.status == .play) {
-                state.player_self.selected = null;
+                state.player_local.selected = null;
             },
 
             'r' => if (state.status == .win) {
@@ -80,8 +80,8 @@ pub fn main() !u8 {
             't' => switch (state.status) {
                 .play => |*side| {
                     side.* = side.flip();
-                    state.player_self.selected = null;
-                    if (state.player_other) |*player_other| {
+                    state.player_local.selected = null;
+                    if (state.player_remote) |*player_other| {
                         player_other.selected = null;
                     }
                 },
@@ -92,8 +92,8 @@ pub fn main() !u8 {
             },
 
             'o' => {
-                state.player_self.selected = null;
-                if (state.player_other) |*player_other| {
+                state.player_local.selected = null;
+                if (state.player_remote) |*player_other| {
                     player_other.selected = null;
                 }
                 state.simulating_other ^= true;

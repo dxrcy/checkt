@@ -237,7 +237,7 @@ pub fn render(self: *Self, state: *const State) void {
             }
 
             // Focus
-            if (state.player_other) |player_other| {
+            if (state.player_remote) |player_other| {
                 self.renderRectHighlight(getTileRect(player_other.focus), .{
                     .fg = if (state.simulating_other)
                         .magenta
@@ -246,7 +246,7 @@ pub fn render(self: *Self, state: *const State) void {
                     .bold = true,
                 });
             }
-            self.renderRectHighlight(getTileRect(state.player_self.focus), .{
+            self.renderRectHighlight(getTileRect(state.player_local.focus), .{
                 .fg = if (state.isSelfActive())
                     if (state.role == .host) .red else .cyan
                 else

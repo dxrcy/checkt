@@ -13,10 +13,8 @@ const Move = moves.Move;
 role: Role,
 status: Status,
 board: Board,
-// TODO: Rename `player_local`
-player_self: Player,
-// TODO: Rename
-player_other: ?Player,
+player_local: Player,
+player_remote: ?Player,
 
 // DEBUG
 simulating_other: bool,
@@ -52,8 +50,8 @@ pub fn new(role: Role) Self {
         .role = role,
         .status = undefined,
         .board = undefined,
-        .player_self = undefined,
-        .player_other = undefined,
+        .player_local = undefined,
+        .player_remote = undefined,
         .simulating_other = undefined,
     };
     self.resetGame();
@@ -63,11 +61,11 @@ pub fn new(role: Role) Self {
 pub fn resetGame(self: *Self) void {
     self.status = .{ .play = .white };
     self.board = Board.new();
-    self.player_self = .{
+    self.player_local = .{
         .focus = .{ .rank = 5, .file = 3 },
         .selected = null,
     };
-    self.player_other = .{
+    self.player_remote = .{
         .focus = .{ .rank = 3, .file = 3 },
         .selected = null,
     };
@@ -168,21 +166,21 @@ pub fn toggleSelection(self: *Self, allow_invalid: bool) void {
 // TODO: Remove? Once `simulating_other` is removed
 pub fn getCurrentPlayer(self: *Self) ?*Player {
     if (self.simulating_other) {
-        if (self.player_other) |*player_other| {
+        if (self.player_remote) |*player_other| {
             return player_other;
         }
         return null;
     }
-    return &self.player_self;
+    return &self.player_local;
 }
 pub fn getCurrentPlayerConst(self: *const Self) ?*const Player {
     if (self.simulating_other) {
-        if (self.player_other) |*player_other| {
+        if (self.player_remote) |*player_other| {
             return player_other;
         }
         return null;
     }
-    return &self.player_self;
+    return &self.player_local;
 }
 
 pub fn isSelfActive(self: *const Self) bool {
