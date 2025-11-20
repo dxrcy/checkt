@@ -66,7 +66,7 @@ pub const AvailableMoves = struct {
     }
 
     fn checkAllows(self: *Self, piece: Piece, move: Move) bool {
-        if (self.no_recurse or !self.board.isPlayerInCheck(piece.player)) {
+        if (self.no_recurse or !self.board.isSideInCheck(piece.side)) {
             return true;
         }
 
@@ -75,7 +75,7 @@ pub const AvailableMoves = struct {
         @memcpy(&board.tiles, &self.board.tiles);
         board.applyMove(self.origin, move);
 
-        return !board.isPlayerInCheck(piece.player);
+        return !board.isSideInCheck(piece.side);
     }
 
     fn tryApplyRule(self: *Self, rule: MoveRule, piece: Piece) ?Move {
@@ -200,13 +200,13 @@ pub const Requirement = struct {
     /// Similar to `MoveRule.position.many`.
     free: ?Offset = null,
     /// If `true`, rule is invalid while in this piece is attacked by other
-    /// player.
+    /// side.
     not_attacked: []const Offset = &[0]Offset{},
 
     pub fn isSatisfied(self: *const Self, context: Context) bool {
         // Can never take/overwrite own piece
         if (context.board.get(context.destination)) |piece_take| {
-            if (piece_take.player == context.piece.player) {
+            if (piece_take.side == context.piece.side) {
                 return false;
             }
         }
@@ -262,7 +262,7 @@ pub const Requirement = struct {
         const piece_take = context.board.get(tile_take) orelse {
             return false;
         };
-        if (piece_take.player == context.piece.player) {
+        if (piece_take.side == context.piece.side) {
             return false;
         }
         return context.board.isSpecial(tile_take);
@@ -288,7 +288,7 @@ pub const Requirement = struct {
             const target = offset.applyTo(context.origin, context.piece) orelse
                 continue;
 
-            if (context.board.isPlayerAttackedAt(context.piece.player, target)) {
+            if (context.board.isSideAttackedAt(context.piece.side, target)) {
                 return false;
             }
         }
@@ -309,7 +309,7 @@ pub const Requirement = struct {
             return false;
         };
         if (piece.kind != move_alt.kind or
-            piece.player != context.piece.player)
+            piece.side != context.piece.side)
         {
             return false;
         }
@@ -339,7 +339,7 @@ pub const Requirement = struct {
             const piece_take = self.board.get(tile_take) orelse {
                 return .no_take;
             };
-            if (piece_take.player == self.piece.player) {
+            if (piece_take.side == self.piece.side) {
                 return .invalid;
             }
             return .take;
@@ -352,7 +352,7 @@ pub const Requirement = struct {
                 return null;
             const piece = self.board.get(tile) orelse
                 return null;
-            assert(piece.player == self.piece.player.flip());
+            assert(piece.side == self.piece.side.flip());
             return tile;
         }
 
@@ -382,7 +382,7 @@ pub const Offset = union(enum) {
             },
             .advance => |offset| {
                 var real_offset = offset;
-                real_offset.rank *= if (piece.player == .white) 1 else -1;
+                real_offset.rank *= if (piece.side == .white) 1 else -1;
                 return real_offset.applyTo(tile);
             },
         }

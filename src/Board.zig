@@ -4,18 +4,18 @@ const std = @import("std");
 const assert = std.debug.assert;
 
 const State = @import("State.zig");
-const Player = State.Player;
+const Side = State.Side;
 
 const moves = @import("moves.zig");
 const Move = moves.Move;
 const AvailableMoves = moves.AvailableMoves;
 
 pub const SIZE: usize = 8;
-pub const MAX_PIECE_COUNT: usize = SIZE * 2 * Player.COUNT;
+pub const MAX_PIECE_COUNT: usize = SIZE * 2 * Side.COUNT;
 
 tiles: [SIZE * SIZE]TileEntry,
 // TODO: Move to `State`
-taken: [Piece.Kind.COUNT * Player.COUNT]u32,
+taken: [Piece.Kind.COUNT * Side.COUNT]u32,
 
 // TODO: Make better
 // TODO: Document
@@ -41,22 +41,22 @@ const TileEntry = packed struct(u7) {
 pub fn new() Self {
     var self = Self{
         .tiles = [_]TileEntry{.empty} ** SIZE ** SIZE,
-        .taken = [1]u32{0} ** (Piece.Kind.COUNT * Player.COUNT),
+        .taken = [1]u32{0} ** (Piece.Kind.COUNT * Side.COUNT),
     };
 
     for (0..8) |file| {
-        self.set(.{ .rank = 1, .file = file }, .{ .kind = .pawn, .player = .white });
-        self.set(.{ .rank = 6, .file = file }, .{ .kind = .pawn, .player = .black });
+        self.set(.{ .rank = 1, .file = file }, .{ .kind = .pawn, .side = .white });
+        self.set(.{ .rank = 6, .file = file }, .{ .kind = .pawn, .side = .black });
     }
-    for ([2]usize{ 0, 7 }, [2]Player{ .white, .black }) |rank, player| {
-        self.set(.{ .rank = rank, .file = 0 }, .{ .kind = .rook, .player = player });
-        self.set(.{ .rank = rank, .file = 1 }, .{ .kind = .knight, .player = player });
-        self.set(.{ .rank = rank, .file = 2 }, .{ .kind = .bishop, .player = player });
-        self.set(.{ .rank = rank, .file = 4 }, .{ .kind = .king, .player = player });
-        self.set(.{ .rank = rank, .file = 3 }, .{ .kind = .queen, .player = player });
-        self.set(.{ .rank = rank, .file = 5 }, .{ .kind = .bishop, .player = player });
-        self.set(.{ .rank = rank, .file = 6 }, .{ .kind = .knight, .player = player });
-        self.set(.{ .rank = rank, .file = 7 }, .{ .kind = .rook, .player = player });
+    for ([2]usize{ 0, 7 }, [2]Side{ .white, .black }) |rank, side| {
+        self.set(.{ .rank = rank, .file = 0 }, .{ .kind = .rook, .side = side });
+        self.set(.{ .rank = rank, .file = 1 }, .{ .kind = .knight, .side = side });
+        self.set(.{ .rank = rank, .file = 2 }, .{ .kind = .bishop, .side = side });
+        self.set(.{ .rank = rank, .file = 4 }, .{ .kind = .king, .side = side });
+        self.set(.{ .rank = rank, .file = 3 }, .{ .kind = .queen, .side = side });
+        self.set(.{ .rank = rank, .file = 5 }, .{ .kind = .bishop, .side = side });
+        self.set(.{ .rank = rank, .file = 6 }, .{ .kind = .knight, .side = side });
+        self.set(.{ .rank = rank, .file = 7 }, .{ .kind = .rook, .side = side });
     }
 
     for (0..SIZE * SIZE) |i| {
@@ -166,21 +166,21 @@ pub fn getAvailableMoves(board: *const Self, origin: Tile) AvailableMoves {
     return AvailableMoves.new(board, origin, false);
 }
 
-pub fn getKing(self: *const Self, player: Player) Tile {
+pub fn getKing(self: *const Self, side: Side) Tile {
     return self.getTileOfFirst(.{
         .kind = .king,
-        .player = player,
+        .side = side,
     }) orelse unreachable;
 }
 
-pub fn isPlayerAttackedAt(self: *const Self, player: Player, target: Tile) bool {
+pub fn isSideAttackedAt(self: *const Self, side: Side, target: Tile) bool {
     for (0..SIZE) |rank| {
         for (0..SIZE) |file| {
             const tile = Tile{ .rank = rank, .file = file };
 
             const piece = self.get(tile) orelse
                 continue;
-            if (piece.player != player.flip()) {
+            if (piece.side != side.flip()) {
                 continue;
             }
 
@@ -196,8 +196,8 @@ pub fn isPlayerAttackedAt(self: *const Self, player: Player, target: Tile) bool 
     return false;
 }
 
-pub fn isPlayerInCheck(self: *const Self, player: Player) bool {
-    return self.isPlayerAttackedAt(player, self.getKing(player));
+pub fn isSideInCheck(self: *const Self, side: Side) bool {
+    return self.isSideAttackedAt(side, self.getKing(side));
 }
 
 pub fn applyMove(self: *Self, origin: Tile, move: Move) void {
@@ -235,7 +235,7 @@ pub const Tile = struct {
 
 pub const Piece = packed struct {
     kind: Kind,
-    player: Player,
+    side: Side,
 
     pub const Kind = enum(u3) {
         pawn,
@@ -275,18 +275,18 @@ pub const Piece = packed struct {
     }
 
     pub fn eql(lhs: Piece, rhs: Piece) bool {
-        return lhs.kind == rhs.kind and lhs.player == rhs.player;
+        return lhs.kind == rhs.kind and lhs.side == rhs.side;
     }
 
     pub fn fromInt(value: u8) Piece {
         return Piece{
             .kind = @enumFromInt(value % Kind.COUNT),
-            .player = @enumFromInt(value / Kind.COUNT),
+            .side = @enumFromInt(value / Kind.COUNT),
         };
     }
 
     pub fn toInt(self: Piece) u8 {
         return @intFromEnum(self.kind) +
-            @intFromEnum(self.player) * Kind.COUNT;
+            @intFromEnum(self.side) * Kind.COUNT;
     }
 };

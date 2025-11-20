@@ -5,7 +5,7 @@ const assert = std.debug.assert;
 const posix = std.posix;
 
 const State = @import("State.zig");
-const Player = State.Player;
+const Side = State.Side;
 const Board = State.Board;
 const Piece = State.Board.Piece;
 const Tile = State.Tile;
@@ -107,11 +107,11 @@ pub fn render(self: *Self, state: *const State) void {
     }
 
     // Taken piece icons
-    for (std.meta.tags(Player), 0..) |player, y| {
+    for (std.meta.tags(Side), 0..) |side, y| {
         var x: usize = 0;
 
         for (std.meta.tags(Piece.Kind)) |kind| {
-            const piece = Piece{ .kind = kind, .player = player };
+            const piece = Piece{ .kind = kind, .side = side };
 
             const count = state.board.getTaken(piece);
             if (count == 0) {
@@ -142,7 +142,7 @@ pub fn render(self: *Self, state: *const State) void {
 
         // Placeholder
         if (x == 0) {
-            const piece = Piece{ .kind = .pawn, .player = player };
+            const piece = Piece{ .kind = .pawn, .side = side };
             const tile = Tile{
                 .rank = Board.SIZE + y,
                 .file = x % Board.SIZE,
@@ -156,13 +156,13 @@ pub fn render(self: *Self, state: *const State) void {
     }
 
     switch (state.status) {
-        .win => |player| {
+        .win => |side| {
             self.renderTextLarge(&[_][]const u8{
                 "game",
                 "over",
             }, 14, 20);
 
-            const string = if (player == .white)
+            const string = if (side == .white)
                 "Blue wins"
             else
                 "Red wins";
@@ -172,17 +172,17 @@ pub fn render(self: *Self, state: *const State) void {
             });
         },
 
-        .play => |player| {
-            if (state.board.isPlayerInCheck(player)) {
-                const king = state.board.getKing(player);
+        .play => |side| {
+            if (state.board.isSideInCheck(side)) {
+                const king = state.board.getKing(side);
                 self.renderRectSolid(getTileRect(king), .{
                     .bg = .white,
                 });
                 self.renderPiece(.{
                     .kind = .king,
-                    .player = player,
+                    .side = side,
                 }, king, .{
-                    .fg = if (player == .white) .cyan else .red,
+                    .fg = if (side == .white) .cyan else .red,
                 });
             }
 
@@ -225,7 +225,7 @@ pub fn render(self: *Self, state: *const State) void {
 
                 self.renderRectSolid(getTileRect(selected), .{
                     // TODO: Extract this ternary as a function
-                    .bg = if (player == .white) .cyan else .red,
+                    .bg = if (side == .white) .cyan else .red,
                 });
 
                 if (state.board.get(selected)) |piece| {
@@ -243,7 +243,7 @@ pub fn render(self: *Self, state: *const State) void {
                 });
             }
             self.renderRectHighlight(getTileRect(state.player_self.focus), .{
-                .fg = if (player == .white) .cyan else .red,
+                .fg = if (side == .white) .cyan else .red,
                 .bold = true,
             });
         },
@@ -347,7 +347,7 @@ fn renderPiece(self: *Self, piece: Piece, tile: Tile, options: Cell.Options) voi
                 tile.file * tile_size.WIDTH + x + tile_size.PADDING_LEFT,
                 (Cell.Options{
                     .char = string[y * Piece.WIDTH + x],
-                    .fg = if (piece.player == .white) .cyan else .red,
+                    .fg = if (piece.side == .white) .cyan else .red,
                     .bold = true,
                 }).join(options),
             );

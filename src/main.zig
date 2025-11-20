@@ -85,8 +85,8 @@ pub fn main() !u8 {
             },
 
             't' => switch (state.status) {
-                .play => |*player| {
-                    player.* = player.flip();
+                .play => |*side| {
+                    side.* = side.flip();
                     state.player_self.selected = null;
                 },
                 else => {},

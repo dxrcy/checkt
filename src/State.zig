@@ -22,18 +22,18 @@ const PlayerState = struct {
 };
 
 const Status = union(enum) {
-    play: Player,
-    win: Player,
+    play: Side,
+    win: Side,
 };
 
 // TODO: Rename
-pub const Player = enum(u1) {
+pub const Side = enum(u1) {
     white = 0,
     black = 1,
 
     pub const COUNT = 2;
 
-    pub fn flip(self: Player) Player {
+    pub fn flip(self: Side) Side {
         return if (self == .white) .black else .white;
     }
 };
@@ -88,9 +88,8 @@ pub fn moveFocus(self: *Self, direction: enum { left, right, up, down }) void {
 
 // TODO: Rename
 pub fn toggleSelection(self: *Self, allow_invalid: bool) void {
-    // TODO: Rename
-    const player = switch (self.status) {
-        .play => |player| player,
+    const side = switch (self.status) {
+        .play => |side| side,
         else => unreachable,
     };
 
@@ -100,7 +99,7 @@ pub fn toggleSelection(self: *Self, allow_invalid: bool) void {
     const selected = player_state.selected orelse {
         const piece = self.board.get(player_state.focus);
         if (piece != null and
-            piece.?.player == player)
+            piece.?.side == side)
         {
             player_state.selected = player_state.focus;
         }
@@ -113,7 +112,7 @@ pub fn toggleSelection(self: *Self, allow_invalid: bool) void {
     }
 
     const piece = self.board.get(selected);
-    assert(piece.?.player == player);
+    assert(piece.?.side == side);
 
     if (allow_invalid) {
         if (self.board.get(player_state.focus)) |piece_taken| {
@@ -123,7 +122,7 @@ pub fn toggleSelection(self: *Self, allow_invalid: bool) void {
         self.board.set(selected, null);
         player_state.selected = null;
         if (!self.updateStatus()) {
-            self.status = .{ .play = player.flip() };
+            self.status = .{ .play = side.flip() };
         }
         return;
     }
@@ -136,13 +135,13 @@ pub fn toggleSelection(self: *Self, allow_invalid: bool) void {
     player_state.selected = null;
 
     if (!self.updateStatus()) {
-        self.status = .{ .play = player.flip() };
+        self.status = .{ .play = side.flip() };
     }
 }
 
 fn updateStatus(self: *Self) bool {
-    const alive_white = self.board.isPieceAlive(.{ .kind = .king, .player = .white });
-    const alive_black = self.board.isPieceAlive(.{ .kind = .king, .player = .black });
+    const alive_white = self.board.isPieceAlive(.{ .kind = .king, .side = .white });
+    const alive_black = self.board.isPieceAlive(.{ .kind = .king, .side = .black });
 
     assert(alive_white or alive_black);
     if (!alive_white) {
