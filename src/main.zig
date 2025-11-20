@@ -89,8 +89,12 @@ const Queue = struct {
 
     pub fn pop(self: *Self) Item {
         while (self.length == 0) {}
+        const item = self.buffer[0];
         self.length -= 1;
-        return self.buffer[self.length];
+        for (0..self.length) |i| {
+            self.buffer[i] = self.buffer[i + 1];
+        }
+        return item;
     }
 };
 
