@@ -10,10 +10,16 @@ pub const Piece = Board.Piece;
 const moves = @import("moves.zig");
 const Move = moves.Move;
 
+role: Role,
 status: Status,
 board: Board,
 player_self: Player,
 player_other: ?Player,
+
+pub const Role = enum {
+    host,
+    join,
+};
 
 const Player = struct {
     focus: Tile,
@@ -36,8 +42,14 @@ pub const Side = enum(u1) {
     }
 };
 
-pub fn new() Self {
-    var self: Self = undefined;
+pub fn new(role: Role) Self {
+    var self = Self{
+        .role = role,
+        .status = undefined,
+        .board = undefined,
+        .player_self = undefined,
+        .player_other = undefined,
+    };
     self.resetGame();
     return self;
 }
