@@ -31,7 +31,6 @@ pub fn main() !void {
         var shared = Shared{
             .state = state,
             .ui = ui,
-            .events = Queue.init(),
         };
 
         const render_thread = try Thread.spawn(.{}, render_worker, .{&shared});
@@ -46,6 +45,8 @@ pub fn main() !void {
     // Don't `defer`, so that error can be returned if possible
     try ui.exit();
 }
+
+var EVENTS = Queue.init();
 
 // FIXME: Make thread-safe
 const Queue = struct {
@@ -84,14 +85,13 @@ const Queue = struct {
 const Shared = struct {
     state: State,
     ui: Ui,
-    events: Queue,
 };
 
 fn render_worker(shared: *Shared) void {
-    shared.events.push(.update);
+    EVENTS.push(.update);
 
     while (true) {
-        const event = shared.events.pop();
+        const event = EVENTS.pop();
         switch (event) {
             .redraw => {
                 shared.ui.getBackFrame().clear();
@@ -152,6 +152,6 @@ fn input_worker(shared: *Shared) !void {
             else => {},
         }
 
-        shared.events.push(.update);
+        EVENTS.push(.update);
     }
 }
