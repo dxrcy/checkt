@@ -103,6 +103,10 @@ pub fn toggleSelection(self: *Self, allow_invalid: bool) void {
         else => unreachable,
     };
 
+    if (!self.isSelfActive()) {
+        return;
+    }
+
     const player = &self.player_self;
 
     const selected = player.selected orelse {
@@ -146,6 +150,14 @@ pub fn toggleSelection(self: *Self, allow_invalid: bool) void {
     if (!self.updateStatus()) {
         self.status = .{ .play = side.flip() };
     }
+}
+
+pub fn isSelfActive(self: *const Self) bool {
+    const side = switch (self.status) {
+        .play => |side| side,
+        else => return false,
+    };
+    return (side == .white) == (self.role == .host);
 }
 
 fn updateStatus(self: *Self) bool {

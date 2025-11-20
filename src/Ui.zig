@@ -243,7 +243,10 @@ pub fn render(self: *Self, state: *const State) void {
                 });
             }
             self.renderRectHighlight(getTileRect(state.player_self.focus), .{
-                .fg = if (side == .white) .cyan else .red,
+                .fg = if (state.isSelfActive())
+                    if (state.role == .host) .cyan else .red
+                else
+                    .white,
                 .bold = true,
             });
         },
