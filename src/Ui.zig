@@ -226,7 +226,7 @@ pub fn render(self: *Self, state: *const State) void {
                             continue;
 
                         self.renderPiece(piece, available.destination, .{
-                            .fg = if (available.destination.isEven()) colors.TILE_WHITE else colors.TILE_BLACK,
+                            .fg = if (available.destination.isEven()) colors.TILE_BLACK else colors.TILE_WHITE,
                         });
 
                         // Take indirect
