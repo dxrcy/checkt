@@ -2,6 +2,7 @@ const std = @import("std");
 const assert = std.debug.assert;
 const fs = std.fs;
 const posix = std.posix;
+const Thread = std.Thread;
 
 const Board = @import("Board.zig");
 const State = @import("State.zig");
@@ -19,19 +20,55 @@ pub fn main() !void {
         }
     }
 
+    const state = State.new();
+
     var ui = Ui.new(ascii);
     try ui.enter();
     // Restore terminal, if anything goes wrong
     errdefer ui.exit() catch unreachable;
 
-    var state = State.new();
+    {
+        var shared = Shared{
+            .state = state,
+            .ui = ui,
+            .render_trigger = std.Thread.ResetEvent{},
+        };
+        shared.render_trigger.set();
 
+        const render_thread = try Thread.spawn(.{}, render_worker, .{&shared});
+        const input_thread = try Thread.spawn(.{}, input_worker, .{&shared});
+
+        // Wait
+        input_thread.join();
+        // Cancel
+        _ = render_thread;
+    }
+
+    // Don't `defer`, so that error can be returned if possible
+    try ui.exit();
+}
+
+const Shared = struct {
+    state: State,
+    ui: Ui,
+    render_trigger: Thread.ResetEvent,
+};
+
+fn render_worker(shared: *Shared) void {
+    while (true) {
+        shared.render_trigger.wait();
+        shared.render_trigger.reset();
+
+        shared.ui.render(&shared.state);
+        shared.ui.draw();
+    }
+}
+
+fn input_worker(shared: *Shared) !void {
+    const state = &shared.state;
     var stdin = fs.File.stdin();
 
     while (true) {
-        ui.render(&state);
-        ui.draw();
-
         var buffer: [1]u8 = undefined;
         const bytes_read = try stdin.read(&buffer);
         if (bytes_read < 1) {
@@ -69,13 +106,12 @@ pub fn main() !void {
             },
 
             'p' => {
-                ui.show_debug ^= true;
+                shared.ui.show_debug ^= true;
             },
 
             else => {},
         }
-    }
 
-    // Don't `defer`, so that error can be returned if possible
-    try ui.exit();
+        shared.render_trigger.set();
+    }
 }
