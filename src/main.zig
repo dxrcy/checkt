@@ -7,9 +7,11 @@ const Thread = std.Thread;
 const Args = @import("Args.zig");
 const Channel = @import("Channel.zig");
 const Board = @import("Board.zig");
-const State = @import("State.zig");
 const Ui = @import("Ui.zig");
 const Connection = @import("Connection.zig");
+
+const State = @import("State.zig");
+const Tile = State.Tile;
 
 pub fn main() !u8 {
     const args = Args.parse() orelse {
@@ -98,9 +100,13 @@ fn render_worker(shared: *Shared) void {
 
 fn input_worker(shared: *Shared) !void {
     const state = &shared.state;
+    var previous_state: State = undefined;
+
     var stdin = fs.File.stdin();
 
     while (true) {
+        previous_state = state.*;
+
         var buffer: [1]u8 = undefined;
         const bytes_read = try stdin.read(&buffer);
         if (bytes_read < 1) {
@@ -149,8 +155,26 @@ fn input_worker(shared: *Shared) !void {
 
         EVENTS.send(.update);
 
-        // PERF: Only send if changed (send on change)
-        try shared.connection.send(.{ .player = shared.state.player_local });
+        // TODO: Make this much better please!
+        if (!state.player_local.focus.eql(previous_state.player_local.focus) or
+            (state.player_local.selected == null) != (previous_state.player_local.selected == null) or
+            (state.player_local.selected != null and
+                previous_state.player_local.selected != null and
+                state.player_local.selected.?.eql(previous_state.player_local.selected.?)))
+        {
+            try shared.connection.send(.{ .player = state.player_local });
+        }
+
+        for (0..Board.SIZE) |rank| {
+            for (0..Board.SIZE) |file| {
+                const tile = Tile{ .rank = rank, .file = file };
+                const piece_current = state.board.get(tile);
+                const piece_previous = previous_state.board.get(tile);
+                if (piece_current != piece_previous) {
+                    // TODO:
+                }
+            }
+        }
     }
 }
 
