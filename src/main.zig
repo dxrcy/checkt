@@ -6,6 +6,7 @@ const posix = std.posix;
 const Board = @import("Board.zig");
 const State = @import("State.zig");
 const Ui = @import("Ui.zig");
+const Connection = @import("Connection.zig");
 
 pub fn main() !u8 {
     var args = std.process.args();
@@ -38,6 +39,12 @@ pub fn main() !u8 {
         std.log.err("missing argument\n", .{});
         return 1;
     };
+
+    var conn = switch (role) {
+        .host => try Connection.connectServer(),
+        .join => try Connection.connectClient(),
+    };
+    defer conn.deinit();
 
     var state = State.new(role);
 
