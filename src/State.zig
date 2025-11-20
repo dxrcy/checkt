@@ -12,11 +12,10 @@ const Move = moves.Move;
 
 status: Status,
 board: Board,
-player_self: PlayerState,
-player_other: ?PlayerState,
+player_self: Player,
+player_other: ?Player,
 
-// TODO: Rename
-const PlayerState = struct {
+const Player = struct {
     focus: Tile,
     selected: ?Tile,
 };
@@ -26,7 +25,6 @@ const Status = union(enum) {
     win: Side,
 };
 
-// TODO: Rename
 pub const Side = enum(u1) {
     white = 0,
     black = 1,
@@ -93,21 +91,20 @@ pub fn toggleSelection(self: *Self, allow_invalid: bool) void {
         else => unreachable,
     };
 
-    // TODO: Rename
-    const player_state = &self.player_self;
+    const player = &self.player_self;
 
-    const selected = player_state.selected orelse {
-        const piece = self.board.get(player_state.focus);
+    const selected = player.selected orelse {
+        const piece = self.board.get(player.focus);
         if (piece != null and
             piece.?.side == side)
         {
-            player_state.selected = player_state.focus;
+            player.selected = player.focus;
         }
         return;
     };
 
-    if (selected.eql(player_state.focus)) {
-        player_state.selected = null;
+    if (selected.eql(player.focus)) {
+        player.selected = null;
         return;
     }
 
@@ -115,24 +112,24 @@ pub fn toggleSelection(self: *Self, allow_invalid: bool) void {
     assert(piece.?.side == side);
 
     if (allow_invalid) {
-        if (self.board.get(player_state.focus)) |piece_taken| {
+        if (self.board.get(player.focus)) |piece_taken| {
             self.board.addTaken(piece_taken);
         }
-        self.board.set(player_state.focus, piece);
+        self.board.set(player.focus, piece);
         self.board.set(selected, null);
-        player_state.selected = null;
+        player.selected = null;
         if (!self.updateStatus()) {
             self.status = .{ .play = side.flip() };
         }
         return;
     }
 
-    const move = self.getAvailableMove(selected, player_state.focus) orelse
+    const move = self.getAvailableMove(selected, player.focus) orelse
         return;
-    assert(move.destination.eql(player_state.focus));
+    assert(move.destination.eql(player.focus));
 
     self.board.applyMove(selected, move);
-    player_state.selected = null;
+    player.selected = null;
 
     if (!self.updateStatus()) {
         self.status = .{ .play = side.flip() };
