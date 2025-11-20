@@ -29,9 +29,17 @@ pub const Player = struct {
     selected: ?Tile,
 };
 
-const Status = union(enum) {
+pub const Status = union(enum) {
     play: Side,
     win: Side,
+
+    pub fn eql(lhs: Status, rhs: Status) bool {
+        // Cheap hack!
+        const size = @sizeOf(Status);
+        const lhs_bytes = @as(*const [size]u8, @ptrCast(@alignCast(&lhs)));
+        const rhs_bytes = @as(*const [size]u8, @ptrCast(@alignCast(&rhs)));
+        return std.mem.eql(u8, lhs_bytes, rhs_bytes);
+    }
 };
 
 pub const Side = enum(u1) {

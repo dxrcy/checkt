@@ -132,6 +132,23 @@ pub fn recv(self: *Self) !Message {
             } };
         },
 
+        4 => {
+            const status_discriminant = try reader.takeByte();
+            const status: State.Status = blk: switch (status_discriminant) {
+                0 => {
+                    const side = try reader.takeInt(u8, ENDIAN);
+                    break :blk .{ .play = @enumFromInt(side) };
+                },
+                1 => {
+                    const side = try reader.takeInt(u8, ENDIAN);
+                    break :blk .{ .play = @enumFromInt(side) };
+                },
+                else => return error.InvalidMessage,
+            };
+
+            return .{ .status = status };
+        },
+
         else => return error.InvalidMessage,
     }
 }
@@ -139,12 +156,14 @@ pub fn recv(self: *Self) !Message {
 // TODO: Move to new file
 // TODO: Move deserialization to member function here
 // TODO: Use functions for common ser/de (eg. Tile)
+// TODO: Maybe dangerous using automatic enum discriminants
 pub const Message = union(enum) {
     player: State.Player,
     piece: struct {
         tile: State.Tile,
         piece: ?State.Piece,
     },
+    status: State.Status,
 
     // DEBUG
     count: u32,
@@ -180,13 +199,26 @@ pub const Message = union(enum) {
                 try writer.writeInt(u32, @intCast(update.tile.file), ENDIAN);
                 if (update.piece) |piece| {
                     try writer.writeByte(1);
-                    // TODO: Maybe dangerous using automatic discriminant
                     try writer.writeInt(u8, @intFromEnum(piece.kind), ENDIAN);
                     try writer.writeInt(u8, @intFromEnum(piece.side), ENDIAN);
                 } else {
                     try writer.writeByte(0);
                     try writer.writeInt(u8, 0, ENDIAN);
                     try writer.writeInt(u8, 0, ENDIAN);
+                }
+            },
+
+            .status => |status| {
+                try writer.writeByte(4);
+                switch (status) {
+                    .play => |side| {
+                        try writer.writeByte(0);
+                        try writer.writeInt(u8, @intFromEnum(side), ENDIAN);
+                    },
+                    .win => |side| {
+                        try writer.writeByte(1);
+                        try writer.writeInt(u8, @intFromEnum(side), ENDIAN);
+                    },
                 }
             },
         }

@@ -178,6 +178,10 @@ fn input_worker(shared: *Shared) !void {
                 }
             }
         }
+
+        if (!state.status.eql(previous_state.status)) {
+            try shared.connection.send(.{ .status = state.status });
+        }
     }
 }
 
@@ -198,6 +202,11 @@ fn recv_worker(shared: *Shared) !void {
 
             .piece => |update| {
                 shared.state.board.set(update.tile, update.piece);
+                EVENTS.send(.update);
+            },
+
+            .status => |status| {
+                shared.state.status = status;
                 EVENTS.send(.update);
             },
         }
