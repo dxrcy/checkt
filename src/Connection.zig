@@ -4,6 +4,8 @@ const std = @import("std");
 const Io = std.Io;
 const net = std.net;
 
+const State = @import("State.zig");
+
 server: ?net.Server,
 stream: net.Stream,
 
@@ -72,11 +74,25 @@ pub fn recv(self: *Self) !Message {
             return .{ .count = count };
         },
 
+        2 => {
+            const focus_rank = try reader.takeInt(u32, ENDIAN);
+            const focus_file = try reader.takeInt(u32, ENDIAN);
+            const player = State.Player{
+                .focus = .{ .rank = focus_rank, .file = focus_file },
+                .selected = null,
+            };
+            return .{ .player = player };
+        },
+
         else => return error.InvalidMessage,
     }
 }
 
+// TODO: Move to new file
+// TODO: Move deserialization to member function here
 pub const Message = union(enum) {
+    player: State.Player,
+
     // DEBUG
     count: u32,
 
@@ -88,6 +104,12 @@ pub const Message = union(enum) {
             .count => |count| {
                 try writer.writeByte(1);
                 try writer.writeInt(u32, count, ENDIAN);
+            },
+
+            .player => |player| {
+                try writer.writeByte(2);
+                try writer.writeInt(u32, @intCast(player.focus.rank), ENDIAN);
+                try writer.writeInt(u32, @intCast(player.focus.file), ENDIAN);
             },
         }
     }

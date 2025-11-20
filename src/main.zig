@@ -177,6 +177,9 @@ fn input_worker(shared: *Shared) !void {
         }
 
         EVENTS.send(.update);
+
+        // PERF: Only send if changed (send on change)
+        try shared.connection.send(.{ .player = shared.state.player_local });
     }
 }
 
@@ -186,6 +189,11 @@ fn recv_worker(shared: *Shared) !void {
         switch (message) {
             .count => |count| {
                 shared.state.count = count;
+                EVENTS.send(.update);
+            },
+
+            .player => |player| {
+                shared.state.player_remote = player;
                 EVENTS.send(.update);
             },
         }

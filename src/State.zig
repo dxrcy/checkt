@@ -25,7 +25,7 @@ pub const Role = enum {
     join,
 };
 
-const Player = struct {
+pub const Player = struct {
     focus: Tile,
     selected: ?Tile,
 };
