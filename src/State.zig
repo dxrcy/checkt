@@ -17,7 +17,6 @@ player_local: Player,
 player_remote: ?Player,
 
 // DEBUG
-simulating_remote: bool,
 count: u32,
 
 pub const Role = enum {
@@ -53,7 +52,6 @@ pub fn new(role: Role) Self {
         .board = undefined,
         .player_local = undefined,
         .player_remote = undefined,
-        .simulating_remote = undefined,
         .count = undefined,
     };
     self.resetGame();
@@ -72,14 +70,13 @@ pub fn resetGame(self: *Self) void {
         .selected = null,
     };
 
-    self.simulating_remote = false;
     self.count = 0;
 }
 
 pub fn moveFocus(self: *Self, direction: enum { left, right, up, down }) void {
     assert(self.status == .play);
 
-    const player = self.getCurrentPlayer() orelse return;
+    const player = &self.player_local;
     const tile = &player.focus;
 
     switch (direction) {
@@ -113,12 +110,11 @@ pub fn toggleSelection(self: *Self, allow_invalid: bool) void {
         else => unreachable,
     };
 
-    if (self.isSelfActive() == self.simulating_remote) {
+    if (!self.isSelfActive()) {
         return;
     }
 
-    const player = self.getCurrentPlayer() orelse
-        return;
+    const player = &self.player_local;
 
     const selected = player.selected orelse {
         const piece = self.board.get(player.focus);
@@ -161,26 +157,6 @@ pub fn toggleSelection(self: *Self, allow_invalid: bool) void {
     if (!self.updateStatus()) {
         self.status = .{ .play = side.flip() };
     }
-}
-
-// TODO: Remove? Once `simulating_remote` is removed
-pub fn getCurrentPlayer(self: *Self) ?*Player {
-    if (self.simulating_remote) {
-        if (self.player_remote) |*player_remote| {
-            return player_remote;
-        }
-        return null;
-    }
-    return &self.player_local;
-}
-pub fn getCurrentPlayerConst(self: *const Self) ?*const Player {
-    if (self.simulating_remote) {
-        if (self.player_remote) |*player_remote| {
-            return player_remote;
-        }
-        return null;
-    }
-    return &self.player_local;
 }
 
 pub fn isSelfActive(self: *const Self) bool {

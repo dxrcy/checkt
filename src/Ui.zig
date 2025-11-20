@@ -206,53 +206,53 @@ pub fn render(self: *Self, state: *const State) void {
                 });
             }
 
-            if (state.getCurrentPlayerConst()) |player| {
-                // Selected, available moves
-                if (player.selected) |selected| {
-                    var available_moves = state.board.getAvailableMoves(selected);
-                    var has_available = false;
-                    while (available_moves.next()) |available| {
-                        has_available = true;
+            const player = state.player_local;
 
-                        if (state.board.get(available.destination)) |piece| {
-                            // Take direct
-                            self.renderPiece(piece, available.destination, .{
-                                .fg = colors.AVAILABLE,
-                            });
-                        } else {
-                            // No take or take indirect
-                            const piece = state.board.get(selected) orelse
-                                continue;
+            // Selected, available moves
+            if (player.selected) |selected| {
+                var available_moves = state.board.getAvailableMoves(selected);
+                var has_available = false;
+                while (available_moves.next()) |available| {
+                    has_available = true;
 
-                            self.renderPiece(piece, available.destination, .{
-                                .fg = if (available.destination.isEven()) colors.TILE_WHITE else colors.TILE_BLACK,
-                            });
+                    if (state.board.get(available.destination)) |piece| {
+                        // Take direct
+                        self.renderPiece(piece, available.destination, .{
+                            .fg = colors.AVAILABLE,
+                        });
+                    } else {
+                        // No take or take indirect
+                        const piece = state.board.get(selected) orelse
+                            continue;
 
-                            // Take indirect
-                            if (available.take) |take| {
-                                self.renderPiece(piece, take, .{
-                                    .fg = colors.ALTERNATIVE,
-                                });
-                            }
-                        }
+                        self.renderPiece(piece, available.destination, .{
+                            .fg = if (available.destination.isEven()) colors.TILE_WHITE else colors.TILE_BLACK,
+                        });
 
-                        if (available.move_alt) |move_alt| {
-                            const piece = state.board.get(move_alt.origin) orelse unreachable;
-                            self.renderPiece(piece, move_alt.origin, .{
+                        // Take indirect
+                        if (available.take) |take| {
+                            self.renderPiece(piece, take, .{
                                 .fg = colors.ALTERNATIVE,
                             });
                         }
                     }
 
-                    self.renderRectSolid(getTileRect(selected), .{
-                        .bg = getSideColor(side),
-                    });
-
-                    if (state.board.get(selected)) |piece| {
-                        self.renderPiece(piece, selected, .{
-                            .fg = if (has_available) colors.TILE_BLACK else colors.UNAVAILABLE,
+                    if (available.move_alt) |move_alt| {
+                        const piece = state.board.get(move_alt.origin) orelse unreachable;
+                        self.renderPiece(piece, move_alt.origin, .{
+                            .fg = colors.ALTERNATIVE,
                         });
                     }
+                }
+
+                self.renderRectSolid(getTileRect(selected), .{
+                    .bg = getSideColor(side),
+                });
+
+                if (state.board.get(selected)) |piece| {
+                    self.renderPiece(piece, selected, .{
+                        .fg = if (has_available) colors.TILE_BLACK else colors.UNAVAILABLE,
+                    });
                 }
             }
 
@@ -271,10 +271,7 @@ pub fn render(self: *Self, state: *const State) void {
                 }
 
                 self.renderRectHighlight(getTileRect(player_remote.focus), .{
-                    .fg = if (state.simulating_remote)
-                        .magenta
-                    else
-                        .green,
+                    .fg = .green,
                     .bold = true,
                 });
             }

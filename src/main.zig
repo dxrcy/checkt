@@ -162,13 +162,6 @@ fn input_worker(shared: *Shared) !void {
                 state.toggleSelection(true);
             },
 
-            'o' => {
-                state.player_local.selected = null;
-                if (state.player_remote) |*player_remote| {
-                    player_remote.selected = null;
-                }
-                state.simulating_remote ^= true;
-            },
             'p' => {
                 shared.ui.show_debug ^= true;
             },
