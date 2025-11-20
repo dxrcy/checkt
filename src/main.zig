@@ -4,6 +4,7 @@ const fs = std.fs;
 const posix = std.posix;
 const Thread = std.Thread;
 
+const Channel = @import("Channel.zig");
 const Board = @import("Board.zig");
 const State = @import("State.zig");
 const Ui = @import("Ui.zig");
@@ -59,88 +60,6 @@ fn handleSignal(sig_num: c_int) callconv(.c) void {
 }
 
 var EVENTS = Channel.init();
-
-// PERF: Convert to ring buffer
-const Queue = struct {
-    const Self = @This();
-
-    const BUFFER_SIZE = 32;
-
-    buffer: [BUFFER_SIZE]Item,
-    length: usize,
-
-    const Item = enum {
-        redraw,
-        update,
-    };
-
-    pub fn init() Self {
-        return Self{
-            .buffer = undefined,
-            .length = 0,
-        };
-    }
-
-    pub fn push(self: *Self, item: Item) void {
-        self.buffer[self.length] = item;
-        self.length += 1;
-    }
-
-    pub fn pop(self: *Self) Item {
-        assert(self.length > 0);
-
-        const item = self.buffer[0];
-        self.length -= 1;
-        for (0..self.length) |i| {
-            self.buffer[i] = self.buffer[i + 1];
-        }
-        return item;
-    }
-};
-
-const Channel = struct {
-    const Self = @This();
-
-    queue: Queue,
-
-    mutex: Thread.Mutex,
-    can_send: Thread.Condition,
-    can_recv: Thread.Condition,
-
-    pub fn init() Self {
-        return Self{
-            .queue = Queue.init(),
-            .mutex = .{},
-            .can_send = .{},
-            .can_recv = .{},
-        };
-    }
-
-    pub fn send(self: *Self, item: Queue.Item) void {
-        self.mutex.lock();
-        defer self.mutex.unlock();
-
-        while (self.queue.length >= Queue.BUFFER_SIZE) {
-            self.can_send.wait(&self.mutex);
-        }
-
-        self.queue.push(item);
-        self.can_recv.signal();
-    }
-
-    pub fn recv(self: *Self) Queue.Item {
-        self.mutex.lock();
-        defer self.mutex.unlock();
-
-        while (self.queue.length == 0) {
-            self.can_recv.wait(&self.mutex);
-        }
-
-        const item = self.queue.pop();
-        self.can_send.signal();
-        return item;
-    }
-};
 
 const Shared = struct {
     state: State,
