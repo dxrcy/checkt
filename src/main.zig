@@ -4,6 +4,7 @@ const fs = std.fs;
 const posix = std.posix;
 const Thread = std.Thread;
 
+const Channel = @import("Channel.zig");
 const Board = @import("Board.zig");
 const State = @import("State.zig");
 const Ui = @import("Ui.zig");
@@ -84,44 +85,10 @@ pub fn main() !u8 {
 
 fn handleSignal(sig_num: c_int) callconv(.c) void {
     _ = sig_num;
-    EVENTS.push(.redraw);
+    EVENTS.send(.redraw);
 }
 
-var EVENTS = Queue.init();
-
-// FIXME: Make thread-safe
-const Queue = struct {
-    const Self = @This();
-
-    buffer: [BUFFER_SIZE]Item,
-    length: usize,
-
-    const BUFFER_SIZE = 4;
-
-    const Item = enum {
-        redraw,
-        update,
-    };
-
-    pub fn init() Self {
-        return Self{
-            .buffer = undefined,
-            .length = 0,
-        };
-    }
-
-    pub fn push(self: *Self, item: Item) void {
-        while (self.length >= BUFFER_SIZE) {}
-        self.buffer[self.length] = item;
-        self.length += 1;
-    }
-
-    pub fn pop(self: *Self) Item {
-        while (self.length == 0) {}
-        self.length -= 1;
-        return self.buffer[self.length];
-    }
-};
+var EVENTS = Channel.init();
 
 const Shared = struct {
     state: State,
@@ -129,10 +96,10 @@ const Shared = struct {
 };
 
 fn render_worker(shared: *Shared) void {
-    EVENTS.push(.update);
+    EVENTS.send(.update);
 
     while (true) {
-        const event = EVENTS.pop();
+        const event = EVENTS.recv();
         switch (event) {
             .redraw => shared.ui.clear(),
             .update => {},
@@ -201,6 +168,6 @@ fn input_worker(shared: *Shared) !void {
             else => {},
         }
 
-        EVENTS.push(.update);
+        EVENTS.send(.update);
     }
 }
