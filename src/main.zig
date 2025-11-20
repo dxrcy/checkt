@@ -7,17 +7,44 @@ const Board = @import("Board.zig");
 const State = @import("State.zig");
 const Ui = @import("Ui.zig");
 
-pub fn main() !void {
+const Role = enum {
+    host,
+    join,
+};
+
+pub fn main() !u8 {
     var args = std.process.args();
     _ = args.next();
 
     var ascii = false;
+    var mode_opt: ?Role = null;
 
     while (args.next()) |arg| {
         if (std.mem.eql(u8, arg, "--ascii")) {
             ascii = true;
         }
+        if (std.mem.eql(u8, arg, "host")) {
+            if (mode_opt != null) {
+                std.log.err("invalid argument\n", .{});
+                return 1;
+            }
+            mode_opt = .host;
+        }
+        if (std.mem.eql(u8, arg, "join")) {
+            if (mode_opt != null) {
+                std.log.err("invalid argument\n", .{});
+                return 1;
+            }
+            mode_opt = .join;
+        }
     }
+
+    const mode = mode_opt orelse {
+        std.log.err("missing argument\n", .{});
+        return 1;
+    };
+
+    _ = mode;
 
     var ui = Ui.new(ascii);
     try ui.enter();
@@ -78,4 +105,6 @@ pub fn main() !void {
 
     // Don't `defer`, so that error can be returned if possible
     try ui.exit();
+
+    return 0;
 }
