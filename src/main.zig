@@ -105,9 +105,7 @@ fn render_worker(shared: *Shared) void {
     while (true) {
         const event = EVENTS.pop();
         switch (event) {
-            .redraw => {
-                shared.ui.getBackFrame().clear();
-            },
+            .redraw => shared.ui.clear(),
             .update => {},
         }
 
