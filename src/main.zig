@@ -54,13 +54,18 @@ pub fn main() !u8 {
     // Restore terminal, if anything goes wrong
     errdefer ui.exit() catch unreachable;
 
+    const action = std.posix.Sigaction{
+        .handler = .{ .handler = handleSignal },
+        .mask = std.posix.sigemptyset(),
+        .flags = 0,
+    };
+    std.posix.sigaction(std.posix.SIG.WINCH, &action, null);
+
     {
         var shared = Shared{
             .state = state,
             .ui = ui,
-            .render_trigger = std.Thread.ResetEvent{},
         };
-        shared.render_trigger.set();
 
         const render_thread = try Thread.spawn(.{}, render_worker, .{&shared});
         const input_thread = try Thread.spawn(.{}, input_worker, .{&shared});
@@ -77,16 +82,61 @@ pub fn main() !u8 {
     return 0;
 }
 
+fn handleSignal(sig_num: c_int) callconv(.c) void {
+    _ = sig_num;
+    EVENTS.push(.redraw);
+}
+
+var EVENTS = Queue.init();
+
+// FIXME: Make thread-safe
+const Queue = struct {
+    const Self = @This();
+
+    buffer: [BUFFER_SIZE]Item,
+    length: usize,
+
+    const BUFFER_SIZE = 4;
+
+    const Item = enum {
+        redraw,
+        update,
+    };
+
+    pub fn init() Self {
+        return Self{
+            .buffer = undefined,
+            .length = 0,
+        };
+    }
+
+    pub fn push(self: *Self, item: Item) void {
+        while (self.length >= BUFFER_SIZE) {}
+        self.buffer[self.length] = item;
+        self.length += 1;
+    }
+
+    pub fn pop(self: *Self) Item {
+        while (self.length == 0) {}
+        self.length -= 1;
+        return self.buffer[self.length];
+    }
+};
+
 const Shared = struct {
     state: State,
     ui: Ui,
-    render_trigger: Thread.ResetEvent,
 };
 
 fn render_worker(shared: *Shared) void {
+    EVENTS.push(.update);
+
     while (true) {
-        shared.render_trigger.wait();
-        shared.render_trigger.reset();
+        const event = EVENTS.pop();
+        switch (event) {
+            .redraw => shared.ui.clear(),
+            .update => {},
+        }
 
         shared.ui.render(&shared.state);
         shared.ui.draw();
@@ -151,6 +201,6 @@ fn input_worker(shared: *Shared) !void {
             else => {},
         }
 
-        shared.render_trigger.set();
+        EVENTS.push(.update);
     }
 }

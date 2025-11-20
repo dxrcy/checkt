@@ -60,7 +60,6 @@ pub fn new(ascii: bool) Self {
 pub fn enter(self: *Self) !void {
     self.terminal.setAlternativeScreen(.enter);
     self.terminal.setCursorVisibility(.hidden);
-    self.terminal.clearEntireScreen();
     self.terminal.flush();
 
     try self.terminal.saveTermios();
@@ -79,11 +78,15 @@ pub fn exit(self: *Self) !void {
     try self.terminal.restoreTermios();
 }
 
+/// Clear back frame and erase terminal screen.
+/// Does **not** clear fore frame; this would be unnecessary.
+pub fn clear(self: *Self) void {
+    self.getBackFrame().clear();
+    self.terminal.clearEntireScreen();
+}
+
 pub fn render(self: *Self, state: *const State) void {
-    // Clear entire frame
-    for (&self.getForeFrame().cells) |*cell| {
-        cell.* = .{};
-    }
+    self.getForeFrame().clear();
 
     // Board tile
     for (0..Board.SIZE) |rank| {
