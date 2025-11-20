@@ -61,13 +61,21 @@ fn handleSignal(sig_num: c_int) callconv(.c) void {
 var EVENTS = Queue.init();
 
 // FIXME: Make thread-safe
+// TODO: Rename
+// PERF: Convert to ring buffer
 const Queue = struct {
     const Self = @This();
+
+    const BUFFER_SIZE = 4;
 
     buffer: [BUFFER_SIZE]Item,
     length: usize,
 
-    const BUFFER_SIZE = 4;
+    mutex: Thread.Mutex,
+    // TODO: Rename
+    push_condition: Thread.Condition,
+    // TODO: Rename
+    pop_condition: Thread.Condition,
 
     const Item = enum {
         redraw,
@@ -78,22 +86,44 @@ const Queue = struct {
         return Self{
             .buffer = undefined,
             .length = 0,
+            .mutex = .{},
+            .push_condition = .{},
+            .pop_condition = .{},
         };
     }
 
+    // TODO: Rename
     pub fn push(self: *Self, item: Item) void {
-        while (self.length >= BUFFER_SIZE) {}
+        self.mutex.lock();
+        defer self.mutex.unlock();
+
+        while (self.length >= BUFFER_SIZE) {
+            self.push_condition.wait(&self.mutex);
+        }
+
         self.buffer[self.length] = item;
         self.length += 1;
+
+        self.pop_condition.signal();
     }
 
+    // TODO: Rename
     pub fn pop(self: *Self) Item {
-        while (self.length == 0) {}
+        self.mutex.lock();
+        defer self.mutex.unlock();
+
+        while (self.length == 0) {
+            self.pop_condition.wait(&self.mutex);
+        }
+
         const item = self.buffer[0];
         self.length -= 1;
         for (0..self.length) |i| {
             self.buffer[i] = self.buffer[i + 1];
         }
+
+        self.push_condition.signal();
+
         return item;
     }
 };
