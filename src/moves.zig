@@ -382,7 +382,7 @@ pub const Offset = union(enum) {
             },
             .advance => |offset| {
                 var real_offset = offset;
-                real_offset.rank *= if (piece.side == .white) 1 else -1;
+                real_offset.rank *= if (piece.side == .white) -1 else 1;
                 return real_offset.applyTo(tile);
             },
         }

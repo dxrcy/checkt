@@ -182,75 +182,98 @@ pub fn render(self: *Self, state: *const State) void {
                     .kind = .king,
                     .side = side,
                 }, king, .{
-                    .fg = if (side == .white) .cyan else .red,
+                    .fg = getSideColor(side),
                 });
             }
 
-            // Selected, available moves
-            if (state.player_self.selected) |selected| {
-                var available_moves = state.board.getAvailableMoves(selected);
-                var has_available = false;
-                while (available_moves.next()) |available| {
-                    has_available = true;
+            if (state.getCurrentPlayerConst()) |player| {
+                // Selected, available moves
+                if (player.selected) |selected| {
+                    var available_moves = state.board.getAvailableMoves(selected);
+                    var has_available = false;
+                    while (available_moves.next()) |available| {
+                        has_available = true;
 
-                    if (state.board.get(available.destination)) |piece| {
-                        // Take direct
-                        self.renderPiece(piece, available.destination, .{
-                            .fg = .bright_white,
-                        });
-                    } else {
-                        // No take or take indirect
-                        const piece = state.board.get(selected) orelse
-                            continue;
+                        if (state.board.get(available.destination)) |piece| {
+                            // Take direct
+                            self.renderPiece(piece, available.destination, .{
+                                .fg = .bright_white,
+                            });
+                        } else {
+                            // No take or take indirect
+                            const piece = state.board.get(selected) orelse
+                                continue;
 
-                        self.renderPiece(piece, available.destination, .{
-                            .fg = if (available.destination.isEven()) .black else .bright_black,
-                        });
+                            self.renderPiece(piece, available.destination, .{
+                                .fg = if (available.destination.isEven()) .black else .bright_black,
+                            });
 
-                        // Take indirect
-                        if (available.take) |take| {
-                            self.renderPiece(piece, take, .{
+                            // Take indirect
+                            if (available.take) |take| {
+                                self.renderPiece(piece, take, .{
+                                    .fg = .white,
+                                });
+                            }
+                        }
+
+                        if (available.move_alt) |move_alt| {
+                            const piece = state.board.get(move_alt.origin) orelse unreachable;
+                            self.renderPiece(piece, move_alt.origin, .{
                                 .fg = .white,
                             });
                         }
                     }
 
-                    if (available.move_alt) |move_alt| {
-                        const piece = state.board.get(move_alt.origin) orelse unreachable;
-                        self.renderPiece(piece, move_alt.origin, .{
-                            .fg = .white,
+                    self.renderRectSolid(getTileRect(selected), .{
+                        .bg = getSideColor(side),
+                    });
+
+                    if (state.board.get(selected)) |piece| {
+                        self.renderPiece(piece, selected, .{
+                            .fg = if (has_available) .black else .white,
                         });
                     }
-                }
-
-                self.renderRectSolid(getTileRect(selected), .{
-                    // TODO: Extract this ternary as a function
-                    .bg = if (side == .white) .cyan else .red,
-                });
-
-                if (state.board.get(selected)) |piece| {
-                    self.renderPiece(piece, selected, .{
-                        .fg = if (has_available) .black else .white,
-                    });
                 }
             }
 
             // Focus
             if (state.player_other) |player_other| {
                 self.renderRectHighlight(getTileRect(player_other.focus), .{
-                    .fg = .green,
+                    .fg = if (state.simulating_other)
+                        .magenta
+                    else
+                        .green,
                     .bold = true,
                 });
             }
             self.renderRectHighlight(getTileRect(state.player_self.focus), .{
                 .fg = if (state.isSelfActive())
-                    if (state.role == .host) .cyan else .red
+                    if (state.role == .host) .red else .cyan
                 else
                     .white,
                 .bold = true,
             });
         },
     }
+
+    self.renderTextLineNormal(
+        if (state.role == .host) "host" else "join",
+        0,
+        0,
+        .{},
+    );
+    self.renderTextLineNormal(
+        if (state.status.play == .white) "white" else "black",
+        1,
+        0,
+        .{},
+    );
+    self.renderTextLineNormal(
+        if (state.simulating_other) "other" else "self",
+        2,
+        0,
+        .{},
+    );
 }
 
 fn renderTextLineNormal(
@@ -350,12 +373,16 @@ fn renderPiece(self: *Self, piece: Piece, tile: Tile, options: Cell.Options) voi
                 tile.file * tile_size.WIDTH + x + tile_size.PADDING_LEFT,
                 (Cell.Options{
                     .char = string[y * Piece.WIDTH + x],
-                    .fg = if (piece.side == .white) .cyan else .red,
+                    .fg = getSideColor(piece.side),
                     .bold = true,
                 }).join(options),
             );
         }
     }
+}
+
+fn getSideColor(side: State.Side) Color {
+    return if (side == .white) .red else .cyan;
 }
 
 fn getTileRect(tile: Tile) Rect {

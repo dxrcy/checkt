@@ -81,6 +81,9 @@ pub fn main() !u8 {
                 .play => |*side| {
                     side.* = side.flip();
                     state.player_self.selected = null;
+                    if (state.player_other) |*player_other| {
+                        player_other.selected = null;
+                    }
                 },
                 else => {},
             },
@@ -88,6 +91,13 @@ pub fn main() !u8 {
                 state.toggleSelection(true);
             },
 
+            'o' => {
+                state.player_self.selected = null;
+                if (state.player_other) |*player_other| {
+                    player_other.selected = null;
+                }
+                state.simulating_other ^= true;
+            },
             'p' => {
                 ui.show_debug ^= true;
             },

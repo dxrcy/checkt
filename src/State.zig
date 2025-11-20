@@ -13,8 +13,13 @@ const Move = moves.Move;
 role: Role,
 status: Status,
 board: Board,
+// TODO: Rename `player_local`
 player_self: Player,
+// TODO: Rename
 player_other: ?Player,
+
+// DEBUG
+simulating_other: bool,
 
 pub const Role = enum {
     host,
@@ -49,6 +54,7 @@ pub fn new(role: Role) Self {
         .board = undefined,
         .player_self = undefined,
         .player_other = undefined,
+        .simulating_other = undefined,
     };
     self.resetGame();
     return self;
@@ -65,12 +71,15 @@ pub fn resetGame(self: *Self) void {
         .focus = .{ .rank = 3, .file = 3 },
         .selected = null,
     };
+
+    self.simulating_other = false;
 }
 
 pub fn moveFocus(self: *Self, direction: enum { left, right, up, down }) void {
     assert(self.status == .play);
 
-    const tile = &self.player_self.focus;
+    const player = self.getCurrentPlayer() orelse return;
+    const tile = &player.focus;
 
     switch (direction) {
         .left => if (tile.file == 0) {
@@ -103,11 +112,15 @@ pub fn toggleSelection(self: *Self, allow_invalid: bool) void {
         else => unreachable,
     };
 
-    if (!self.isSelfActive()) {
+    if (self.isSelfActive() == self.simulating_other) {
         return;
     }
 
-    const player = &self.player_self;
+    const player = self.getCurrentPlayer() orelse
+        return;
+
+    // const side = .black;
+    // const player = &self.player_other;
 
     const selected = player.selected orelse {
         const piece = self.board.get(player.focus);
@@ -150,6 +163,26 @@ pub fn toggleSelection(self: *Self, allow_invalid: bool) void {
     if (!self.updateStatus()) {
         self.status = .{ .play = side.flip() };
     }
+}
+
+// TODO: Remove? Once `simulating_other` is removed
+pub fn getCurrentPlayer(self: *Self) ?*Player {
+    if (self.simulating_other) {
+        if (self.player_other) |*player_other| {
+            return player_other;
+        }
+        return null;
+    }
+    return &self.player_self;
+}
+pub fn getCurrentPlayerConst(self: *const Self) ?*const Player {
+    if (self.simulating_other) {
+        if (self.player_other) |*player_other| {
+            return player_other;
+        }
+        return null;
+    }
+    return &self.player_self;
 }
 
 pub fn isSelfActive(self: *const Self) bool {

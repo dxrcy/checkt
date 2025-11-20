@@ -45,10 +45,10 @@ pub fn new() Self {
     };
 
     for (0..8) |file| {
-        self.set(.{ .rank = 1, .file = file }, .{ .kind = .pawn, .side = .white });
-        self.set(.{ .rank = 6, .file = file }, .{ .kind = .pawn, .side = .black });
+        self.set(.{ .rank = 1, .file = file }, .{ .kind = .pawn, .side = .black });
+        self.set(.{ .rank = 6, .file = file }, .{ .kind = .pawn, .side = .white });
     }
-    for ([2]usize{ 0, 7 }, [2]Side{ .white, .black }) |rank, side| {
+    for ([2]usize{ 0, 7 }, [2]Side{ .black, .white }) |rank, side| {
         self.set(.{ .rank = rank, .file = 0 }, .{ .kind = .rook, .side = side });
         self.set(.{ .rank = rank, .file = 1 }, .{ .kind = .knight, .side = side });
         self.set(.{ .rank = rank, .file = 2 }, .{ .kind = .bishop, .side = side });
