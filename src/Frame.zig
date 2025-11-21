@@ -27,6 +27,12 @@ pub fn new() Self {
     };
 }
 
+pub fn clear(self: *Self) void {
+    for (&self.cells) |*cell| {
+        cell.* = .{};
+    }
+}
+
 // TODO: Use container for y,x
 pub fn set(self: *Self, y: usize, x: usize, options: Cell.Options) void {
     assert(x < WIDTH and y < HEIGHT);

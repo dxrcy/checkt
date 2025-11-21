@@ -10,29 +10,58 @@ pub const Piece = Board.Piece;
 const moves = @import("moves.zig");
 const Move = moves.Move;
 
+role: ?Role,
 status: Status,
 board: Board,
-focus: Tile,
-selected: ?Tile,
+player_local: Player,
+player_remote: ?Player,
 
-const Status = union(enum) {
-    play: Player,
-    win: Player,
+// DEBUG
+count: u32,
+
+pub const Role = enum {
+    host,
+    join,
 };
 
-pub const Player = enum(u1) {
+pub const Player = struct {
+    focus: Tile,
+    selected: ?Tile,
+};
+
+pub const Status = union(enum) {
+    play: Side,
+    win: Side,
+
+    pub fn eql(lhs: Status, rhs: Status) bool {
+        // Cheap hack!
+        const size = @sizeOf(Status);
+        const lhs_bytes = @as(*const [size]u8, @ptrCast(@alignCast(&lhs)));
+        const rhs_bytes = @as(*const [size]u8, @ptrCast(@alignCast(&rhs)));
+        return std.mem.eql(u8, lhs_bytes, rhs_bytes);
+    }
+};
+
+pub const Side = enum(u1) {
     white = 0,
     black = 1,
 
     pub const COUNT = 2;
 
-    pub fn flip(self: Player) Player {
+    pub fn flip(self: Side) Side {
         return if (self == .white) .black else .white;
     }
 };
 
-pub fn new() Self {
-    var self: Self = undefined;
+pub fn new(role: ?Role) Self {
+    var self = Self{
+        .role = role,
+        .status = undefined,
+        .board = undefined,
+        .player_local = undefined,
+        .player_remote = undefined,
+        .count = undefined,
+    };
     self.resetGame();
     return self;
 }
@@ -40,90 +69,118 @@ pub fn new() Self {
 pub fn resetGame(self: *Self) void {
     self.status = .{ .play = .white };
     self.board = Board.new();
-    self.focus = .{ .rank = 3, .file = 3 };
-    self.selected = null;
+    self.player_local = .{
+        .focus = .{ .rank = 5, .file = 3 },
+        .selected = null,
+    };
+    self.player_remote = if (self.role == null) null else .{
+        .focus = .{ .rank = 3, .file = 3 },
+        .selected = null,
+    };
+
+    self.count = 0;
 }
 
 pub fn moveFocus(self: *Self, direction: enum { left, right, up, down }) void {
     assert(self.status == .play);
 
+    const player = &self.player_local;
+    const tile = &player.focus;
+
     switch (direction) {
-        .left => if (self.focus.file == 0) {
-            self.focus.file = Board.SIZE - 1;
+        .left => if (tile.file == 0) {
+            tile.file = Board.SIZE - 1;
         } else {
-            self.focus.file -= 1;
+            tile.file -= 1;
         },
-        .right => if (self.focus.file >= Board.SIZE - 1) {
-            self.focus.file = 0;
+        .right => if (tile.file >= Board.SIZE - 1) {
+            tile.file = 0;
         } else {
-            self.focus.file += 1;
+            tile.file += 1;
         },
-        .up => if (self.focus.rank == 0) {
-            self.focus.rank = Board.SIZE - 1;
+        .up => if (tile.rank == 0) {
+            tile.rank = Board.SIZE - 1;
         } else {
-            self.focus.rank -= 1;
+            tile.rank -= 1;
         },
-        .down => if (self.focus.rank >= Board.SIZE - 1) {
-            self.focus.rank = 0;
+        .down => if (tile.rank >= Board.SIZE - 1) {
+            tile.rank = 0;
         } else {
-            self.focus.rank += 1;
+            tile.rank += 1;
         },
     }
 }
 
 // TODO: Rename
 pub fn toggleSelection(self: *Self, allow_invalid: bool) void {
-    const player = switch (self.status) {
-        .play => |player| player,
+    const side = switch (self.status) {
+        .play => |side| side,
         else => unreachable,
     };
 
-    const selected = self.selected orelse {
-        const piece = self.board.get(self.focus);
+    if (!self.isSelfActive()) {
+        return;
+    }
+
+    const player = &self.player_local;
+
+    const selected = player.selected orelse {
+        const piece = self.board.get(player.focus);
         if (piece != null and
-            piece.?.player == player)
+            piece.?.side == side)
         {
-            self.selected = self.focus;
+            player.selected = player.focus;
         }
         return;
     };
 
-    if (selected.eql(self.focus)) {
-        self.selected = null;
+    if (selected.eql(player.focus)) {
+        player.selected = null;
         return;
     }
 
     const piece = self.board.get(selected);
-    assert(piece.?.player == player);
+    assert(piece.?.side == side);
 
     if (allow_invalid) {
-        if (self.board.get(self.focus)) |piece_taken| {
+        if (self.board.get(player.focus)) |piece_taken| {
             self.board.addTaken(piece_taken);
         }
-        self.board.set(self.focus, piece);
+        self.board.set(player.focus, piece);
         self.board.set(selected, null);
-        self.selected = null;
+        player.selected = null;
         if (!self.updateStatus()) {
-            self.status = .{ .play = player.flip() };
+            self.status = .{ .play = side.flip() };
         }
         return;
     }
 
-    const move = self.getAvailableMove(selected, self.focus) orelse
+    const move = self.getAvailableMove(selected, player.focus) orelse
         return;
-    assert(move.destination.eql(self.focus));
+    assert(move.destination.eql(player.focus));
 
     self.board.applyMove(selected, move);
-    self.selected = null;
+    player.selected = null;
 
     if (!self.updateStatus()) {
-        self.status = .{ .play = player.flip() };
+        self.status = .{ .play = side.flip() };
     }
 }
 
+pub fn isSelfActive(self: *const Self) bool {
+    const side = switch (self.status) {
+        .play => |side| side,
+        else => return false,
+    };
+    if (self.role == null) {
+        return true;
+    }
+    return (side == .white) == (self.role == .host);
+}
+
 fn updateStatus(self: *Self) bool {
-    const alive_white = self.board.isPieceAlive(.{ .kind = .king, .player = .white });
-    const alive_black = self.board.isPieceAlive(.{ .kind = .king, .player = .black });
+    const alive_white = self.board.isPieceAlive(.{ .kind = .king, .side = .white });
+    const alive_black = self.board.isPieceAlive(.{ .kind = .king, .side = .black });
 
     assert(alive_white or alive_black);
     if (!alive_white) {

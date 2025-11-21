@@ -5,7 +5,7 @@ const assert = std.debug.assert;
 const posix = std.posix;
 
 const State = @import("State.zig");
-const Player = State.Player;
+const Side = State.Side;
 const Board = State.Board;
 const Piece = State.Board.Piece;
 const Tile = State.Tile;
@@ -60,7 +60,6 @@ pub fn new(ascii: bool) Self {
 pub fn enter(self: *Self) !void {
     self.terminal.setAlternativeScreen(.enter);
     self.terminal.setCursorVisibility(.hidden);
-    self.terminal.clearEntireScreen();
     self.terminal.flush();
 
     try self.terminal.saveTermios();
@@ -79,19 +78,40 @@ pub fn exit(self: *Self) !void {
     try self.terminal.restoreTermios();
 }
 
+/// Clear back frame and erase terminal screen.
+/// Does **not** clear fore frame; this would be unnecessary.
+pub fn clear(self: *Self) void {
+    self.getBackFrame().clear();
+    self.terminal.clearEntireScreen();
+}
+
+const colors = struct {
+    pub const TILE_WHITE = .bright_black;
+    pub const TILE_BLACK = .black;
+
+    pub const PIECE_WHITE = .red;
+    pub const PIECE_BLACK = .cyan;
+
+    pub const AVAILABLE = .bright_white;
+    pub const UNAVAILABLE = .white;
+    pub const ALTERNATIVE = .white;
+
+    pub const PLACEHOLDER = .bright_black;
+    pub const HIGHLIGHT = .yellow;
+
+    pub const REMOTE = .green;
+};
+
 pub fn render(self: *Self, state: *const State) void {
-    // Clear entire frame
-    for (&self.getForeFrame().cells) |*cell| {
-        cell.* = .{};
-    }
+    self.getForeFrame().clear();
 
     // Board tile
     for (0..Board.SIZE) |rank| {
         for (0..Board.SIZE) |file| {
-            const tile = Tile{ .rank = rank, .file = file };
+            const tile = Tile{ .rank = @intCast(rank), .file = @intCast(file) };
             self.renderRectSolid(getTileRect(tile), .{
                 .char = ' ',
-                .bg = if (tile.isEven()) .bright_black else .black,
+                .bg = if (tile.isEven()) colors.TILE_WHITE else colors.TILE_BLACK,
             });
         }
     }
@@ -99,7 +119,7 @@ pub fn render(self: *Self, state: *const State) void {
     // Board piece icons
     for (0..Board.SIZE) |rank| {
         for (0..Board.SIZE) |file| {
-            const tile = Tile{ .rank = rank, .file = file };
+            const tile = Tile{ .rank = @intCast(rank), .file = @intCast(file) };
             if (state.board.get(tile)) |piece| {
                 self.renderPiece(piece, tile, .{});
             }
@@ -107,11 +127,11 @@ pub fn render(self: *Self, state: *const State) void {
     }
 
     // Taken piece icons
-    for (std.meta.tags(Player), 0..) |player, y| {
+    for (std.meta.tags(Side), 0..) |side, y| {
         var x: usize = 0;
 
         for (std.meta.tags(Piece.Kind)) |kind| {
-            const piece = Piece{ .kind = kind, .player = player };
+            const piece = Piece{ .kind = kind, .side = side };
 
             const count = state.board.getTaken(piece);
             if (count == 0) {
@@ -119,8 +139,8 @@ pub fn render(self: *Self, state: *const State) void {
             }
 
             const tile = Tile{
-                .rank = Board.SIZE + y,
-                .file = x % Board.SIZE,
+                .rank = @intCast(Board.SIZE + y),
+                .file = @intCast(x % Board.SIZE),
             };
 
             self.renderPiece(piece, tile, .{});
@@ -131,7 +151,7 @@ pub fn render(self: *Self, state: *const State) void {
                     tile.rank * tile_size.HEIGHT + 1,
                     tile.file * tile_size.WIDTH + tile_size.PADDING_LEFT + Piece.WIDTH + 1,
                     .{
-                        .fg = .yellow,
+                        .fg = colors.HIGHLIGHT,
                         .bold = true,
                     },
                 );
@@ -142,27 +162,27 @@ pub fn render(self: *Self, state: *const State) void {
 
         // Placeholder
         if (x == 0) {
-            const piece = Piece{ .kind = .pawn, .player = player };
+            const piece = Piece{ .kind = .pawn, .side = side };
             const tile = Tile{
-                .rank = Board.SIZE + y,
-                .file = x % Board.SIZE,
+                .rank = @intCast(Board.SIZE + y),
+                .file = @intCast(x % Board.SIZE),
             };
 
             self.renderPiece(piece, tile, .{
-                .fg = .bright_black,
+                .fg = colors.PLACEHOLDER,
                 .bold = false,
             });
         }
     }
 
     switch (state.status) {
-        .win => |player| {
+        .win => |side| {
             self.renderTextLarge(&[_][]const u8{
                 "game",
                 "over",
             }, 14, 20);
 
-            const string = if (player == .white)
+            const string = if (side == .white)
                 "Blue wins"
             else
                 "Red wins";
@@ -172,22 +192,25 @@ pub fn render(self: *Self, state: *const State) void {
             });
         },
 
-        .play => |player| {
-            if (state.board.isPlayerInCheck(player)) {
-                const king = state.board.getKing(player);
+        .play => |side| {
+            const side_local: Side = if (state.role == .host) .white else .black;
+            const player = state.player_local;
+
+            if (state.board.isSideInCheck(side_local)) {
+                const king = state.board.getKing(side_local);
                 self.renderRectSolid(getTileRect(king), .{
-                    .bg = .white,
+                    .bg = colors.UNAVAILABLE,
                 });
                 self.renderPiece(.{
                     .kind = .king,
-                    .player = player,
+                    .side = side_local,
                 }, king, .{
-                    .fg = if (player == .white) .cyan else .red,
+                    .fg = getSideColor(side_local),
                 });
             }
 
             // Selected, available moves
-            if (state.selected) |selected| {
+            if (player.selected) |selected| {
                 var available_moves = state.board.getAvailableMoves(selected);
                 var has_available = false;
                 while (available_moves.next()) |available| {
@@ -196,7 +219,7 @@ pub fn render(self: *Self, state: *const State) void {
                     if (state.board.get(available.destination)) |piece| {
                         // Take direct
                         self.renderPiece(piece, available.destination, .{
-                            .fg = .bright_white,
+                            .fg = colors.AVAILABLE,
                         });
                     } else {
                         // No take or take indirect
@@ -204,13 +227,13 @@ pub fn render(self: *Self, state: *const State) void {
                             continue;
 
                         self.renderPiece(piece, available.destination, .{
-                            .fg = if (available.destination.isEven()) .black else .bright_black,
+                            .fg = if (available.destination.isEven()) colors.TILE_BLACK else colors.TILE_WHITE,
                         });
 
                         // Take indirect
                         if (available.take) |take| {
                             self.renderPiece(piece, take, .{
-                                .fg = .white,
+                                .fg = colors.ALTERNATIVE,
                             });
                         }
                     }
@@ -218,30 +241,75 @@ pub fn render(self: *Self, state: *const State) void {
                     if (available.move_alt) |move_alt| {
                         const piece = state.board.get(move_alt.origin) orelse unreachable;
                         self.renderPiece(piece, move_alt.origin, .{
-                            .fg = .white,
+                            .fg = colors.ALTERNATIVE,
                         });
                     }
                 }
 
                 self.renderRectSolid(getTileRect(selected), .{
-                    // TODO: Extract this ternary as a function
-                    .bg = if (player == .white) .cyan else .red,
+                    .bg = getSideColor(side),
                 });
 
                 if (state.board.get(selected)) |piece| {
                     self.renderPiece(piece, selected, .{
-                        .fg = if (has_available) .black else .white,
+                        .fg = if (has_available) colors.TILE_BLACK else colors.UNAVAILABLE,
                     });
                 }
             }
 
-            // Focus
-            self.renderRectHighlight(getTileRect(state.focus), .{
-                .fg = if (player == .white) .cyan else .red,
+            // Focus, remote
+            if (state.player_remote) |player_remote| {
+                if (player_remote.selected) |selected| {
+                    self.renderRectSolid(getTileRect(selected), .{
+                        .bg = colors.REMOTE,
+                    });
+
+                    if (state.board.get(selected)) |piece| {
+                        self.renderPiece(piece, selected, .{
+                            .fg = colors.TILE_BLACK,
+                        });
+                    }
+                }
+
+                self.renderRectHighlight(getTileRect(player_remote.focus), .{
+                    .fg = .green,
+                    .bold = true,
+                });
+            }
+
+            // Focus, local
+            self.renderRectHighlight(getTileRect(state.player_local.focus), .{
+                .fg = if (state.isSelfActive())
+                    getSideColor(side)
+                else
+                    colors.UNAVAILABLE,
                 .bold = true,
             });
         },
     }
+
+    var buffer: [10]u8 = undefined;
+    const string = std.fmt.bufPrint(&buffer, "{}", .{state.count}) catch unreachable;
+    self.renderTextLineNormal(string, 0, 0, .{});
+
+    // self.renderTextLineNormal(
+    //     if (state.role == .host) "host" else "join",
+    //     0,
+    //     0,
+    //     .{},
+    // );
+    // self.renderTextLineNormal(
+    //     if (state.status.play == .white) "white" else "black",
+    //     1,
+    //     0,
+    //     .{},
+    // );
+    // self.renderTextLineNormal(
+    //     if (state.simulating_remote) "other" else "self",
+    //     2,
+    //     0,
+    //     .{},
+    // );
 }
 
 fn renderTextLineNormal(
@@ -341,12 +409,16 @@ fn renderPiece(self: *Self, piece: Piece, tile: Tile, options: Cell.Options) voi
                 tile.file * tile_size.WIDTH + x + tile_size.PADDING_LEFT,
                 (Cell.Options{
                     .char = string[y * Piece.WIDTH + x],
-                    .fg = if (piece.player == .white) .cyan else .red,
+                    .fg = getSideColor(piece.side),
                     .bold = true,
                 }).join(options),
             );
         }
     }
+}
+
+fn getSideColor(side: State.Side) Color {
+    return if (side == .white) colors.PIECE_WHITE else colors.PIECE_BLACK;
 }
 
 fn getTileRect(tile: Tile) Rect {
