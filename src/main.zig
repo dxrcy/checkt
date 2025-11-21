@@ -18,15 +18,14 @@ pub fn main() !u8 {
         return 1;
     };
 
-    var conn = switch (args.role) {
+    var conn = if (args.role) |role| switch (role) {
         .host => try Connection.newServer(),
         .join => Connection.newClient(args.port orelse unreachable),
-    };
+    } else Connection.newSingle();
     if (args.role == .host) {
         std.log.info("hosting on port {}.", .{conn.port});
         std.log.info("waiting for client to join...", .{});
     }
-    conn.dummy = args.dummy;
     try conn.init();
     defer conn.deinit();
 

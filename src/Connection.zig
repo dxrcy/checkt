@@ -6,6 +6,10 @@ const net = std.net;
 const State = @import("State.zig");
 const serde = @import("serde.zig");
 
+// TODO: Use union for fields
+
+// TODO: Rename
+single: bool,
 server: ?net.Server,
 port: u16,
 stream: net.Stream,
@@ -14,8 +18,6 @@ writer: net.Stream.Writer,
 reader: net.Stream.Reader,
 write_buffer: [WRITE_BUFFER_SIZE]u8,
 read_buffer: [READ_BUFFER_SIZE]u8,
-
-dummy: bool = false,
 
 const START_ADDRESS = net.Address.parseIp4("127.0.0.1", 5100) catch unreachable;
 const PORT_RANGE = 400;
@@ -32,6 +34,7 @@ pub fn newServer() !Self {
         return error.NoAvailablePort;
     };
     return Self{
+        .single = false,
         .server = server,
         .port = server.listen_address.getPort(),
         .stream = undefined,
@@ -44,8 +47,23 @@ pub fn newServer() !Self {
 
 pub fn newClient(port: u16) Self {
     return Self{
+        .single = false,
         .server = null,
         .port = port,
+        .stream = undefined,
+        .writer = undefined,
+        .reader = undefined,
+        .write_buffer = undefined,
+        .read_buffer = undefined,
+    };
+}
+
+// TODO: Rename
+pub fn newSingle() Self {
+    return Self{
+        .single = true,
+        .server = null,
+        .port = undefined,
         .stream = undefined,
         .writer = undefined,
         .reader = undefined,
@@ -67,7 +85,7 @@ fn createServer() !?net.Server {
 }
 
 pub fn init(self: *Self) InitError!void {
-    if (self.dummy) {
+    if (self.single) {
         return;
     }
 
@@ -85,7 +103,7 @@ pub fn init(self: *Self) InitError!void {
 }
 
 pub fn deinit(self: *Self) void {
-    if (self.dummy) {
+    if (self.single) {
         return;
     }
 
@@ -96,7 +114,7 @@ pub fn deinit(self: *Self) void {
 }
 
 pub fn send(self: *Self, message: Message) serde.SerError!void {
-    if (self.dummy) {
+    if (self.single) {
         return;
     }
 
@@ -105,7 +123,7 @@ pub fn send(self: *Self, message: Message) serde.SerError!void {
 }
 
 pub fn recv(self: *Self) serde.DeError!Message {
-    if (self.dummy) {
+    if (self.single) {
         waitForever();
     }
 

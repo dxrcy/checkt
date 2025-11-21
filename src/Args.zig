@@ -5,9 +5,8 @@ const std = @import("std");
 const State = @import("State.zig");
 
 ascii: bool,
-dummy: bool,
 // TODO: Use new union type with port if joining
-role: State.Role,
+role: ?State.Role,
 port: ?u16,
 
 pub fn parse() ?Self {
@@ -15,8 +14,7 @@ pub fn parse() ?Self {
     _ = args.next();
 
     var ascii = false;
-    var dummy = false;
-    var role_opt: ?State.Role = null;
+    var role: ?State.Role = null;
     var port: ?u16 = null;
 
     while (args.next()) |arg| {
@@ -24,24 +22,20 @@ pub fn parse() ?Self {
             ascii = true;
         }
 
-        if (std.mem.eql(u8, arg, "--dummy")) {
-            dummy = true;
-        }
-
         if (std.mem.eql(u8, arg, "host")) {
-            if (role_opt != null) {
+            if (role != null) {
                 std.log.err("invalid argument", .{});
                 return null;
             }
-            role_opt = .host;
+            role = .host;
         }
 
         if (std.mem.eql(u8, arg, "join")) {
-            if (role_opt != null) {
+            if (role != null) {
                 std.log.err("invalid argument", .{});
                 return null;
             }
-            role_opt = .join;
+            role = .join;
 
             const port_str = args.next() orelse {
                 std.log.err("missing value", .{});
@@ -54,14 +48,8 @@ pub fn parse() ?Self {
         }
     }
 
-    const role = role_opt orelse {
-        std.log.err("missing argument", .{});
-        return null;
-    };
-
     return Self{
         .ascii = ascii,
-        .dummy = dummy,
         .role = role,
         .port = port,
     };

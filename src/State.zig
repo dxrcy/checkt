@@ -10,7 +10,7 @@ pub const Piece = Board.Piece;
 const moves = @import("moves.zig");
 const Move = moves.Move;
 
-role: Role,
+role: ?Role,
 status: Status,
 board: Board,
 player_local: Player,
@@ -53,7 +53,7 @@ pub const Side = enum(u1) {
     }
 };
 
-pub fn new(role: Role) Self {
+pub fn new(role: ?Role) Self {
     var self = Self{
         .role = role,
         .status = undefined,
