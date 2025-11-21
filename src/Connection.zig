@@ -7,6 +7,7 @@ const State = @import("State.zig");
 const serde = @import("serde.zig");
 
 server: ?net.Server,
+port: u16,
 stream: net.Stream,
 
 writer: net.Stream.Writer,
@@ -32,6 +33,7 @@ pub fn newServer() !Self {
     };
     return Self{
         .server = server,
+        .port = server.listen_address.getPort(),
         .stream = undefined,
         .writer = undefined,
         .reader = undefined,
@@ -40,9 +42,10 @@ pub fn newServer() !Self {
     };
 }
 
-pub fn newClient() Self {
+pub fn newClient(port: u16) Self {
     return Self{
         .server = null,
+        .port = port,
         .stream = undefined,
         .writer = undefined,
         .reader = undefined,
@@ -68,10 +71,14 @@ pub fn init(self: *Self) InitError!void {
         return;
     }
 
-    self.stream = if (self.server) |*server|
-        (try server.accept()).stream
-    else
-        try net.tcpConnectToAddress(START_ADDRESS);
+    if (self.server) |*server| {
+        const connection = try server.accept();
+        self.stream = connection.stream;
+    } else {
+        var addr = START_ADDRESS;
+        addr.setPort(self.port);
+        self.stream = try net.tcpConnectToAddress(addr);
+    }
 
     self.writer = self.stream.writer(&self.write_buffer);
     self.reader = self.stream.reader(&self.read_buffer);

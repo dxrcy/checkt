@@ -20,10 +20,10 @@ pub fn main() !u8 {
 
     var conn = switch (args.role) {
         .host => try Connection.newServer(),
-        .join => Connection.newClient(),
+        .join => Connection.newClient(args.port orelse unreachable),
     };
     if (args.role == .host) {
-        std.log.info("hosting on port {}.", .{conn.server.?.listen_address.getPort()});
+        std.log.info("hosting on port {}.", .{conn.port});
         std.log.info("waiting for client to join...", .{});
     }
     conn.dummy = args.dummy;
