@@ -73,7 +73,7 @@ pub fn resetGame(self: *Self) void {
         .focus = .{ .rank = 5, .file = 3 },
         .selected = null,
     };
-    self.player_remote = .{
+    self.player_remote = if (self.role == null) null else .{
         .focus = .{ .rank = 3, .file = 3 },
         .selected = null,
     };
@@ -172,6 +172,9 @@ pub fn isSelfActive(self: *const Self) bool {
         .play => |side| side,
         else => return false,
     };
+    if (self.role == null) {
+        return true;
+    }
     return (side == .white) == (self.role == .host);
 }
 
