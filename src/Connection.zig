@@ -2,6 +2,7 @@ const Self = @This();
 
 const std = @import("std");
 const Io = std.Io;
+const math = std.math;
 const net = std.net;
 
 const State = @import("State.zig");
@@ -174,38 +175,20 @@ pub const Message = union(enum) {
     ) Io.Writer.Error!void {
         switch (self.*) {
             .count => |count| {
-                try writer.writeByte(1);
-                try writer.writeInt(u32, count, ENDIAN);
+                try serialize(u8, 1, writer);
+                try serialize(u32, count, writer);
             },
 
             .player => |player| {
-                try writer.writeByte(2);
-                try writer.writeInt(u16, player.focus.rank, ENDIAN);
-                try writer.writeInt(u16, player.focus.file, ENDIAN);
-                if (player.selected) |selected| {
-                    try writer.writeByte(1);
-                    try writer.writeInt(u16, selected.rank, ENDIAN);
-                    try writer.writeInt(u16, selected.file, ENDIAN);
-                } else {
-                    try writer.writeByte(0);
-                    try writer.writeInt(u32, 0, ENDIAN);
-                    try writer.writeInt(u32, 0, ENDIAN);
-                }
+                try serialize(u8, 2, writer);
+                try serialize(State.Tile, player.focus, writer);
+                try serialize(?State.Tile, player.selected, writer);
             },
 
             .piece => |update| {
                 try writer.writeByte(3);
-                try writer.writeInt(u16, update.tile.rank, ENDIAN);
-                try writer.writeInt(u16, update.tile.file, ENDIAN);
-                if (update.piece) |piece| {
-                    try writer.writeByte(1);
-                    try writer.writeInt(u8, @intFromEnum(piece.kind), ENDIAN);
-                    try writer.writeInt(u8, @intFromEnum(piece.side), ENDIAN);
-                } else {
-                    try writer.writeByte(0);
-                    try writer.writeInt(u8, 0, ENDIAN);
-                    try writer.writeInt(u8, 0, ENDIAN);
-                }
+                try serialize(State.Tile, update.tile, writer);
+                try serialize(?State.Piece, update.piece, writer);
             },
 
             .status => |status| {
@@ -224,6 +207,57 @@ pub const Message = union(enum) {
         }
     }
 };
+
+
+
+fn serialize(comptime T: type, value: T, writer: *Io.Writer) !void {
+    switch (@typeInfo(T)) {
+        .int => {
+            comptime std.debug.assert(!std.mem.eql(u8, @typeName(T), "usize"));
+            try writer.writeInt(resizeIntToBytes(T), value, ENDIAN);
+        },
+
+        .optional => |optional| {
+            if (value) |value_child| {
+                try serialize(u8, 1, writer);
+                try serialize(optional.child, value_child, writer);
+            } else {
+                try serialize(u8, 0, writer);
+                try serialize(getIntOfSize(optional.child), 0, writer);
+            }
+        },
+
+        .@"enum" => {
+            const int = @intFromEnum(value);
+            try serialize(@TypeOf(int), int, writer);
+        },
+
+        .@"struct" => |strct| {
+            inline for (strct.fields) |field| {
+                const field_value = @field(value, field.name);
+                try serialize(@TypeOf(field_value), field_value, writer);
+            }
+        },
+
+        else => @compileError("serialization is not supported for type `" ++ @typeName(T) ++ "`"),
+    }
+}
+
+fn resizeIntToBytes(comptime T: type) type {
+    const int = @typeInfo(T).int;
+    const bits = 8 * (math.divCeil(u16, int.bits, 8) catch unreachable);
+    return @Type(std.builtin.Type{ .int = .{
+        .bits = bits,
+        .signedness = int.signedness,
+    } });
+}
+
+fn getIntOfSize(comptime T: type) type {
+    return @Type(std.builtin.Type{ .int = .{
+        .bits = @bitSizeOf(T),
+        .signedness = .unsigned,
+    } });
+}
 
 fn waitForever() noreturn {
     var mutex = std.Thread.Mutex{};
