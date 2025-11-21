@@ -10,7 +10,10 @@ const moves = @import("moves.zig");
 const Move = moves.Move;
 const AvailableMoves = moves.AvailableMoves;
 
-pub const SIZE: usize = 8;
+// TODO: Rename
+const TileIndex = u16;
+
+pub const SIZE: TileIndex = 8;
 pub const MAX_PIECE_COUNT: usize = SIZE * 2 * Side.COUNT;
 
 tiles: [SIZE * SIZE]TileEntry,
@@ -44,11 +47,13 @@ pub fn new() Self {
         .taken = [1]u32{0} ** (Piece.Kind.COUNT * Side.COUNT),
     };
 
-    for (0..8) |file| {
+    for (0..8) |i| {
+        const file: TileIndex = @intCast(i);
         self.set(.{ .rank = 1, .file = file }, .{ .kind = .pawn, .side = .black });
         self.set(.{ .rank = 6, .file = file }, .{ .kind = .pawn, .side = .white });
     }
-    for ([2]usize{ 0, 7 }, [2]Side{ .black, .white }) |rank, side| {
+    for ([2]usize{ 0, 7 }, [2]Side{ .black, .white }) |i, side| {
+        const rank: TileIndex = @intCast(i);
         self.set(.{ .rank = rank, .file = 0 }, .{ .kind = .rook, .side = side });
         self.set(.{ .rank = rank, .file = 1 }, .{ .kind = .knight, .side = side });
         self.set(.{ .rank = rank, .file = 2 }, .{ .kind = .bishop, .side = side });
@@ -147,7 +152,7 @@ pub fn addTaken(self: *Self, piece: Piece) void {
 pub fn getTileOfFirst(self: *const Self, target: Piece) ?Tile {
     for (0..SIZE) |rank| {
         for (0..SIZE) |file| {
-            const tile = Tile{ .rank = rank, .file = file };
+            const tile = Tile{ .rank = @intCast(rank), .file = @intCast(file) };
             const piece = self.get(tile) orelse
                 continue;
             if (piece.eql(target)) {
@@ -176,7 +181,7 @@ pub fn getKing(self: *const Self, side: Side) Tile {
 pub fn isSideAttackedAt(self: *const Self, side: Side, target: Tile) bool {
     for (0..SIZE) |rank| {
         for (0..SIZE) |file| {
-            const tile = Tile{ .rank = rank, .file = file };
+            const tile = Tile{ .rank = @intCast(rank), .file = @intCast(file) };
 
             const piece = self.get(tile) orelse
                 continue;
@@ -221,8 +226,8 @@ fn movePieceToEmpty(self: *Self, origin: Tile, destination: Tile, special: bool)
 }
 
 pub const Tile = struct {
-    rank: usize,
-    file: usize,
+    rank: TileIndex,
+    file: TileIndex,
 
     pub fn eql(lhs: Tile, rhs: Tile) bool {
         return lhs.rank == rhs.rank and lhs.file == rhs.file;

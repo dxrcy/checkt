@@ -108,7 +108,7 @@ pub fn render(self: *Self, state: *const State) void {
     // Board tile
     for (0..Board.SIZE) |rank| {
         for (0..Board.SIZE) |file| {
-            const tile = Tile{ .rank = rank, .file = file };
+            const tile = Tile{ .rank = @intCast(rank), .file = @intCast(file) };
             self.renderRectSolid(getTileRect(tile), .{
                 .char = ' ',
                 .bg = if (tile.isEven()) colors.TILE_WHITE else colors.TILE_BLACK,
@@ -119,7 +119,7 @@ pub fn render(self: *Self, state: *const State) void {
     // Board piece icons
     for (0..Board.SIZE) |rank| {
         for (0..Board.SIZE) |file| {
-            const tile = Tile{ .rank = rank, .file = file };
+            const tile = Tile{ .rank = @intCast(rank), .file = @intCast(file) };
             if (state.board.get(tile)) |piece| {
                 self.renderPiece(piece, tile, .{});
             }
@@ -139,8 +139,8 @@ pub fn render(self: *Self, state: *const State) void {
             }
 
             const tile = Tile{
-                .rank = Board.SIZE + y,
-                .file = x % Board.SIZE,
+                .rank = @intCast(Board.SIZE + y),
+                .file = @intCast(x % Board.SIZE),
             };
 
             self.renderPiece(piece, tile, .{});
@@ -164,8 +164,8 @@ pub fn render(self: *Self, state: *const State) void {
         if (x == 0) {
             const piece = Piece{ .kind = .pawn, .side = side };
             const tile = Tile{
-                .rank = Board.SIZE + y,
-                .file = x % Board.SIZE,
+                .rank = @intCast(Board.SIZE + y),
+                .file = @intCast(x % Board.SIZE),
             };
 
             self.renderPiece(piece, tile, .{

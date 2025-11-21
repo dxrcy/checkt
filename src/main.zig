@@ -155,6 +155,8 @@ fn input_worker(shared: *Shared) !void {
 
         EVENTS.send(.update);
 
+        // TODO: Move the following to a function
+
         // TODO: Make this much better please!
         if (!state.player_local.focus.eql(previous_state.player_local.focus) or
             (state.player_local.selected == null) != (previous_state.player_local.selected == null) or
@@ -167,7 +169,7 @@ fn input_worker(shared: *Shared) !void {
 
         for (0..Board.SIZE) |rank| {
             for (0..Board.SIZE) |file| {
-                const tile = Tile{ .rank = rank, .file = file };
+                const tile = Tile{ .rank = @intCast(rank), .file = @intCast(file) };
                 const piece_current = state.board.get(tile);
                 const piece_previous = previous_state.board.get(tile);
                 if (piece_current != piece_previous) {

@@ -96,12 +96,12 @@ pub fn recv(self: *Self) !Message {
         },
 
         2 => {
-            const focus_rank = try reader.takeInt(u32, ENDIAN);
-            const focus_file = try reader.takeInt(u32, ENDIAN);
+            const focus_rank = try reader.takeInt(u16, ENDIAN);
+            const focus_file = try reader.takeInt(u16, ENDIAN);
 
             const selected_set = try reader.takeByte() != 0;
-            const selected_rank = try reader.takeInt(u32, ENDIAN);
-            const selected_file = try reader.takeInt(u32, ENDIAN);
+            const selected_rank = try reader.takeInt(u16, ENDIAN);
+            const selected_file = try reader.takeInt(u16, ENDIAN);
 
             return .{ .player = State.Player{
                 .focus = .{ .rank = focus_rank, .file = focus_file },
@@ -113,8 +113,8 @@ pub fn recv(self: *Self) !Message {
         },
 
         3 => {
-            const tile_rank = try reader.takeInt(u32, ENDIAN);
-            const tile_file = try reader.takeInt(u32, ENDIAN);
+            const tile_rank = try reader.takeInt(u16, ENDIAN);
+            const tile_file = try reader.takeInt(u16, ENDIAN);
 
             const piece_set = try reader.takeByte() != 0;
             const piece_kind = try reader.takeInt(u8, ENDIAN);
@@ -180,12 +180,12 @@ pub const Message = union(enum) {
 
             .player => |player| {
                 try writer.writeByte(2);
-                try writer.writeInt(u32, @intCast(player.focus.rank), ENDIAN);
-                try writer.writeInt(u32, @intCast(player.focus.file), ENDIAN);
+                try writer.writeInt(u16, player.focus.rank, ENDIAN);
+                try writer.writeInt(u16, player.focus.file, ENDIAN);
                 if (player.selected) |selected| {
                     try writer.writeByte(1);
-                    try writer.writeInt(u32, @intCast(selected.rank), ENDIAN);
-                    try writer.writeInt(u32, @intCast(selected.file), ENDIAN);
+                    try writer.writeInt(u16, selected.rank, ENDIAN);
+                    try writer.writeInt(u16, selected.file, ENDIAN);
                 } else {
                     try writer.writeByte(0);
                     try writer.writeInt(u32, 0, ENDIAN);
@@ -195,8 +195,8 @@ pub const Message = union(enum) {
 
             .piece => |update| {
                 try writer.writeByte(3);
-                try writer.writeInt(u32, @intCast(update.tile.rank), ENDIAN);
-                try writer.writeInt(u32, @intCast(update.tile.file), ENDIAN);
+                try writer.writeInt(u16, update.tile.rank, ENDIAN);
+                try writer.writeInt(u16, update.tile.file, ENDIAN);
                 if (update.piece) |piece| {
                     try writer.writeByte(1);
                     try writer.writeInt(u8, @intFromEnum(piece.kind), ENDIAN);
