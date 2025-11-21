@@ -20,17 +20,13 @@ pub fn parse() ?Self {
     while (args.next()) |arg| {
         if (std.mem.eql(u8, arg, "--ascii")) {
             ascii = true;
-        }
-
-        if (std.mem.eql(u8, arg, "host")) {
+        } else if (std.mem.eql(u8, arg, "host")) {
             if (role != null) {
                 std.log.err("invalid argument", .{});
                 return null;
             }
             role = .host;
-        }
-
-        if (std.mem.eql(u8, arg, "join")) {
+        } else if (std.mem.eql(u8, arg, "join")) {
             if (role != null) {
                 std.log.err("invalid argument", .{});
                 return null;
@@ -45,6 +41,9 @@ pub fn parse() ?Self {
                 std.log.err("invalid value", .{});
                 return null;
             };
+        } else {
+            std.log.err("invalid argument", .{});
+            return null;
         }
     }
 
