@@ -1,4 +1,4 @@
-# chesst -- Terminal Chess Game
+# checkt -- Terminal Chess Game
 
 ```sh
 zig build run
