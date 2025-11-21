@@ -193,20 +193,21 @@ pub fn render(self: *Self, state: *const State) void {
         },
 
         .play => |side| {
-            if (state.board.isSideInCheck(side)) {
-                const king = state.board.getKing(side);
+            const side_local: Side = if (state.role == .host) .white else .black;
+            const player = state.player_local;
+
+            if (state.board.isSideInCheck(side_local)) {
+                const king = state.board.getKing(side_local);
                 self.renderRectSolid(getTileRect(king), .{
                     .bg = colors.UNAVAILABLE,
                 });
                 self.renderPiece(.{
                     .kind = .king,
-                    .side = side,
+                    .side = side_local,
                 }, king, .{
-                    .fg = getSideColor(side),
+                    .fg = getSideColor(side_local),
                 });
             }
-
-            const player = state.player_local;
 
             // Selected, available moves
             if (player.selected) |selected| {
