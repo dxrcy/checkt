@@ -77,7 +77,7 @@ pub fn send(self: *Self, message: Message) !void {
         return;
     }
 
-    try self.writer.interface.print("{f}", .{message});
+    try serialize(Message, message, &self.writer.interface);
     try self.writer.interface.flush();
 }
 
@@ -86,50 +86,9 @@ pub fn recv(self: *Self) !Message {
         waitForever();
     }
 
-    var reader = self.reader.interface();
-
-    const discriminant = try reader.takeByte();
-    switch (discriminant) {
-        1 => {
-            const count = try deserialize(u32, reader);
-            return .{ .count = count };
-        },
-
-        2 => {
-            const player = try deserialize(State.Player, reader);
-            return .{ .player = player };
-        },
-
-        3 => {
-            const update = try deserialize(Message.PieceUpdate, reader);
-            return .{ .piece = update };
-        },
-
-        4 => {
-            const status_discriminant = try deserialize(u8, reader);
-            const status: State.Status = blk: switch (status_discriminant) {
-                0 => {
-                    const side = try deserialize(State.Side, reader);
-                    break :blk .{ .play = side };
-                },
-                1 => {
-                    const side = try deserialize(State.Side, reader);
-                    break :blk .{ .win = side };
-                },
-                else => return error.Malformed,
-            };
-
-            return .{ .status = status };
-        },
-
-        else => return error.Malformed,
-    }
+    return try deserialize(Message, self.reader.interface());
 }
 
-// TODO: Move to new file
-// TODO: Move deserialization to member function here
-// TODO: Use functions for common ser/de (eg. Tile)
-// TODO: Maybe dangerous using automatic enum discriminants
 pub const Message = union(enum) {
     player: State.Player,
     piece: PieceUpdate,
@@ -142,43 +101,9 @@ pub const Message = union(enum) {
         tile: State.Tile,
         piece: ?State.Piece,
     };
-
-    pub fn format(
-        self: *const Message,
-        writer: *Io.Writer,
-    ) Io.Writer.Error!void {
-        switch (self.*) {
-            .count => |count| {
-                try serialize(u8, 1, writer);
-                try serialize(u32, count, writer);
-            },
-
-            .player => |player| {
-                try serialize(u8, 2, writer);
-                try serialize(State.Player, player, writer);
-            },
-
-            .piece => |update| {
-                try serialize(u8, 3, writer);
-                try serialize(PieceUpdate, update, writer);
-            },
-
-            .status => |status| {
-                try serialize(u8, 4, writer);
-                switch (status) {
-                    .play => |side| {
-                        try serialize(u8, 0, writer);
-                        try serialize(State.Side, side, writer);
-                    },
-                    .win => |side| {
-                        try serialize(u8, 1, writer);
-                        try serialize(State.Side, side, writer);
-                    },
-                }
-            },
-        }
-    }
 };
+
+// TODO: Move ser/de functions to new file
 
 fn deserialize(comptime T: type, reader: *Io.Reader) !T {
     switch (@typeInfo(T)) {
@@ -218,6 +143,22 @@ fn deserialize(comptime T: type, reader: *Io.Reader) !T {
             return value;
         },
 
+        .@"union" => |unn| {
+            const tag_type = unn.tag_type orelse {
+                @compileError("serialization is not supported for type untagged unions");
+            };
+            const tag = try deserialize(tag_type, reader);
+
+            inline for (unn.fields, 0..) |field, i| {
+                if (i == @intFromEnum(tag)) {
+                    const field_value = try deserialize(field.type, reader);
+                    const value: T = @unionInit(T, field.name, field_value);
+                    return value;
+                }
+            }
+            return error.Malformed; // Invalid tag
+        },
+
         else => @compileError("deserialization is not supported for type `" ++ @typeName(T) ++ "`"),
     }
 }
@@ -248,6 +189,23 @@ fn serialize(comptime T: type, value: T, writer: *Io.Writer) !void {
                 const field_value = @field(value, field.name);
                 try serialize(@TypeOf(field_value), field_value, writer);
             }
+        },
+
+        .@"union" => |unn| {
+            const tag_type = unn.tag_type orelse {
+                @compileError("serialization is not supported for type untagged unions");
+            };
+            const tag = @as(tag_type, value);
+            try serialize(tag_type, tag, writer);
+
+            inline for (unn.fields, 0..) |field, i| {
+                if (i == @intFromEnum(tag)) {
+                    const field_value = @field(value, field.name);
+                    try serialize(field.type, field_value, writer);
+                    return;
+                }
+            }
+            unreachable;
         },
 
         else => @compileError("serialization is not supported for type `" ++ @typeName(T) ++ "`"),
