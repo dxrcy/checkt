@@ -21,7 +21,11 @@ const ADDRESS = net.Address.parseIp4("127.0.0.1", 5721) catch unreachable;
 const WRITE_BUFFER_SIZE = 1024;
 const READ_BUFFER_SIZE = 1024;
 
-pub fn newServer() !Self {
+const InitError =
+    net.Server.AcceptError ||
+    net.TcpConnectToAddressError;
+
+pub fn newServer() net.Address.ListenError!Self {
     const server = try ADDRESS.listen(.{});
     return Self{
         .server = server,
@@ -44,7 +48,7 @@ pub fn newClient() Self {
     };
 }
 
-pub fn init(self: *Self) !void {
+pub fn init(self: *Self) InitError!void {
     if (self.dummy) {
         return;
     }
@@ -69,7 +73,7 @@ pub fn deinit(self: *Self) void {
     }
 }
 
-pub fn send(self: *Self, message: Message) !void {
+pub fn send(self: *Self, message: Message) serde.SerError!void {
     if (self.dummy) {
         return;
     }
@@ -78,7 +82,7 @@ pub fn send(self: *Self, message: Message) !void {
     try self.writer.interface.flush();
 }
 
-pub fn recv(self: *Self) !Message {
+pub fn recv(self: *Self) serde.DeError!Message {
     if (self.dummy) {
         waitForever();
     }

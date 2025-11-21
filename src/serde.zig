@@ -5,7 +5,13 @@ const math = std.math;
 
 const ENDIAN = builtin.Endian.big;
 
-pub fn serialize(comptime T: type, value: T, writer: *Io.Writer) !void {
+pub const SerError =
+    Io.Writer.Error;
+pub const DeError =
+    Io.Reader.Error ||
+    error{Malformed};
+
+pub fn serialize(comptime T: type, value: T, writer: *Io.Writer) SerError!void {
     switch (@typeInfo(T)) {
         .int => {
             comptime std.debug.assert(!std.mem.eql(u8, @typeName(T), "usize"));
@@ -54,7 +60,7 @@ pub fn serialize(comptime T: type, value: T, writer: *Io.Writer) !void {
     }
 }
 
-pub fn deserialize(comptime T: type, reader: *Io.Reader) !T {
+pub fn deserialize(comptime T: type, reader: *Io.Reader) DeError!T {
     switch (@typeInfo(T)) {
         .int => {
             comptime std.debug.assert(!std.mem.eql(u8, @typeName(T), "usize"));
