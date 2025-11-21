@@ -16,7 +16,8 @@ read_buffer: [READ_BUFFER_SIZE]u8,
 
 dummy: bool = false,
 
-const ADDRESS = net.Address.parseIp4("127.0.0.1", 5721) catch unreachable;
+const START_ADDRESS = net.Address.parseIp4("127.0.0.1", 5100) catch unreachable;
+const PORT_RANGE = 400;
 
 const WRITE_BUFFER_SIZE = 1024;
 const READ_BUFFER_SIZE = 1024;
@@ -25,8 +26,10 @@ const InitError =
     net.Server.AcceptError ||
     net.TcpConnectToAddressError;
 
-pub fn newServer() net.Address.ListenError!Self {
-    const server = try ADDRESS.listen(.{});
+pub fn newServer() !Self {
+    const server = try createServer() orelse {
+        return error.NoAvailablePort;
+    };
     return Self{
         .server = server,
         .stream = undefined,
@@ -48,6 +51,18 @@ pub fn newClient() Self {
     };
 }
 
+fn createServer() !?net.Server {
+    for (0..PORT_RANGE) |i| {
+        var addr = START_ADDRESS;
+        addr.setPort(START_ADDRESS.getPort() + @as(u16, @intCast(i)));
+        return addr.listen(.{}) catch |err| switch (err) {
+            error.AddressInUse => continue,
+            else => |err2| return err2,
+        };
+    }
+    return null;
+}
+
 pub fn init(self: *Self) InitError!void {
     if (self.dummy) {
         return;
@@ -56,7 +71,7 @@ pub fn init(self: *Self) InitError!void {
     self.stream = if (self.server) |*server|
         (try server.accept()).stream
     else
-        try net.tcpConnectToAddress(ADDRESS);
+        try net.tcpConnectToAddress(START_ADDRESS);
 
     self.writer = self.stream.writer(&self.write_buffer);
     self.reader = self.stream.reader(&self.read_buffer);

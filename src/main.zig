@@ -23,7 +23,8 @@ pub fn main() !u8 {
         .join => Connection.newClient(),
     };
     if (args.role == .host) {
-        std.log.info("waiting for client to join...\n", .{});
+        std.log.info("hosting on port {}.", .{conn.server.?.listen_address.getPort()});
+        std.log.info("waiting for client to join...", .{});
     }
     conn.dummy = args.dummy;
     try conn.init();
