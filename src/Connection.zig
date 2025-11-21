@@ -88,69 +88,41 @@ pub fn recv(self: *Self) !Message {
 
     var reader = self.reader.interface();
 
-    // TODO: Handle malformed messages
     const discriminant = try reader.takeByte();
     switch (discriminant) {
         1 => {
-            const count = try reader.takeInt(u32, ENDIAN);
+            const count = try deserialize(u32, reader);
             return .{ .count = count };
         },
 
         2 => {
-            const focus_rank = try reader.takeInt(u16, ENDIAN);
-            const focus_file = try reader.takeInt(u16, ENDIAN);
-
-            const selected_set = try reader.takeByte() != 0;
-            const selected_rank = try reader.takeInt(u16, ENDIAN);
-            const selected_file = try reader.takeInt(u16, ENDIAN);
-
-            return .{ .player = State.Player{
-                .focus = .{ .rank = focus_rank, .file = focus_file },
-                .selected = if (selected_set)
-                    .{ .rank = selected_rank, .file = selected_file }
-                else
-                    null,
-            } };
+            const player = try deserialize(State.Player, reader);
+            return .{ .player = player };
         },
 
         3 => {
-            const tile_rank = try reader.takeInt(u16, ENDIAN);
-            const tile_file = try reader.takeInt(u16, ENDIAN);
-
-            const piece_set = try reader.takeByte() != 0;
-            const piece_kind = try reader.takeInt(u8, ENDIAN);
-            const piece_side = try reader.takeInt(u8, ENDIAN);
-
-            return .{ .piece = .{
-                .tile = .{ .rank = tile_rank, .file = tile_file },
-                .piece = if (piece_set)
-                    .{
-                        .kind = @enumFromInt(piece_kind),
-                        .side = @enumFromInt(piece_side),
-                    }
-                else
-                    null,
-            } };
+            const update = try deserialize(Message.PieceUpdate, reader);
+            return .{ .piece = update };
         },
 
         4 => {
-            const status_discriminant = try reader.takeByte();
+            const status_discriminant = try deserialize(u8, reader);
             const status: State.Status = blk: switch (status_discriminant) {
                 0 => {
-                    const side = try reader.takeInt(u8, ENDIAN);
-                    break :blk .{ .play = @enumFromInt(side) };
+                    const side = try deserialize(State.Side, reader);
+                    break :blk .{ .play = side };
                 },
                 1 => {
-                    const side = try reader.takeInt(u8, ENDIAN);
-                    break :blk .{ .play = @enumFromInt(side) };
+                    const side = try deserialize(State.Side, reader);
+                    break :blk .{ .win = side };
                 },
-                else => return error.InvalidMessage,
+                else => return error.Malformed,
             };
 
             return .{ .status = status };
         },
 
-        else => return error.InvalidMessage,
+        else => return error.Malformed,
     }
 }
 
@@ -160,14 +132,16 @@ pub fn recv(self: *Self) !Message {
 // TODO: Maybe dangerous using automatic enum discriminants
 pub const Message = union(enum) {
     player: State.Player,
-    piece: struct {
-        tile: State.Tile,
-        piece: ?State.Piece,
-    },
+    piece: PieceUpdate,
     status: State.Status,
 
     // DEBUG
     count: u32,
+
+    const PieceUpdate = struct {
+        tile: State.Tile,
+        piece: ?State.Piece,
+    };
 
     pub fn format(
         self: *const Message,
@@ -181,26 +155,24 @@ pub const Message = union(enum) {
 
             .player => |player| {
                 try serialize(u8, 2, writer);
-                try serialize(State.Tile, player.focus, writer);
-                try serialize(?State.Tile, player.selected, writer);
+                try serialize(State.Player, player, writer);
             },
 
             .piece => |update| {
-                try writer.writeByte(3);
-                try serialize(State.Tile, update.tile, writer);
-                try serialize(?State.Piece, update.piece, writer);
+                try serialize(u8, 3, writer);
+                try serialize(PieceUpdate, update, writer);
             },
 
             .status => |status| {
-                try writer.writeByte(4);
+                try serialize(u8, 4, writer);
                 switch (status) {
                     .play => |side| {
-                        try writer.writeByte(0);
-                        try writer.writeInt(u8, @intFromEnum(side), ENDIAN);
+                        try serialize(u8, 0, writer);
+                        try serialize(State.Side, side, writer);
                     },
                     .win => |side| {
-                        try writer.writeByte(1);
-                        try writer.writeInt(u8, @intFromEnum(side), ENDIAN);
+                        try serialize(u8, 1, writer);
+                        try serialize(State.Side, side, writer);
                     },
                 }
             },
@@ -208,7 +180,47 @@ pub const Message = union(enum) {
     }
 };
 
+fn deserialize(comptime T: type, reader: *Io.Reader) !T {
+    switch (@typeInfo(T)) {
+        .int => {
+            comptime std.debug.assert(!std.mem.eql(u8, @typeName(T), "usize"));
+            const padded = try reader.takeInt(resizeIntToBytes(T), ENDIAN);
+            return math.cast(T, padded) orelse {
+                return error.Malformed;
+            };
+        },
 
+        .@"enum" => |enm| {
+            const int = try deserialize(enm.tag_type, reader);
+            return std.meta.intToEnum(T, int) catch {
+                return error.Malformed;
+            };
+        },
+
+        .optional => |optional| {
+            const discriminant = try deserialize(u8, reader);
+            if (discriminant == 1) {
+                const child_value = try deserialize(optional.child, reader);
+                return child_value;
+            } else if (discriminant == 0) {
+                return null;
+            } else {
+                return error.Malformed;
+            }
+        },
+
+        .@"struct" => |strct| {
+            var value: T = undefined;
+            inline for (strct.fields) |field| {
+                const field_value = try deserialize(field.type, reader);
+                @field(value, field.name) = field_value;
+            }
+            return value;
+        },
+
+        else => @compileError("deserialization is not supported for type `" ++ @typeName(T) ++ "`"),
+    }
+}
 
 fn serialize(comptime T: type, value: T, writer: *Io.Writer) !void {
     switch (@typeInfo(T)) {
@@ -217,19 +229,18 @@ fn serialize(comptime T: type, value: T, writer: *Io.Writer) !void {
             try writer.writeInt(resizeIntToBytes(T), value, ENDIAN);
         },
 
+        .@"enum" => {
+            const int = @intFromEnum(value);
+            try serialize(@TypeOf(int), int, writer);
+        },
+
         .optional => |optional| {
             if (value) |value_child| {
                 try serialize(u8, 1, writer);
                 try serialize(optional.child, value_child, writer);
             } else {
                 try serialize(u8, 0, writer);
-                try serialize(getIntOfSize(optional.child), 0, writer);
             }
-        },
-
-        .@"enum" => {
-            const int = @intFromEnum(value);
-            try serialize(@TypeOf(int), int, writer);
         },
 
         .@"struct" => |strct| {

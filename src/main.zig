@@ -167,6 +167,7 @@ fn input_worker(shared: *Shared) !void {
             try shared.connection.send(.{ .player = state.player_local });
         }
 
+        // TODO: Send taken pieces updates
         for (0..Board.SIZE) |rank| {
             for (0..Board.SIZE) |file| {
                 const tile = Tile{ .rank = @intCast(rank), .file = @intCast(file) };
@@ -190,7 +191,13 @@ fn input_worker(shared: *Shared) !void {
 // FIXME: Lock state on modification
 fn recv_worker(shared: *Shared) !void {
     while (true) {
-        const message = try shared.connection.recv();
+        const message = shared.connection.recv() catch |err| switch (err) {
+            error.Malformed => {
+                // TODO: Handle
+                continue;
+            },
+            else => |err2| return err2,
+        };
         switch (message) {
             .count => |count| {
                 shared.state.count = count;
