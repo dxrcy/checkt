@@ -21,18 +21,18 @@ pub fn main() !u8 {
         return 1;
     };
 
-    var conn = if (args.role) |role| switch (role) {
+    var connection = if (args.role) |role| switch (role) {
         .host => try Connection.newServer(),
         .join => Connection.newClient(args.port orelse unreachable),
     } else Connection.newSingle();
     if (args.role == .host) {
-        std.log.info("hosting on port {}.", .{conn.port});
+        std.log.info("hosting on port {}.", .{connection.port});
         std.log.info("waiting for client to join...", .{});
     }
-    try conn.init();
-    defer conn.deinit();
+    try connection.init();
+    defer connection.deinit();
 
-    const state = State.new(args.role);
+    var state = State.new(args.role);
 
     var ui = Ui.new(args.ascii);
     try ui.enter();
@@ -47,23 +47,42 @@ pub fn main() !u8 {
     std.posix.sigaction(std.posix.SIG.WINCH, &action, null);
 
     {
-        // TODO: Don't use single shared object; thread functions should have
-        // fine grained access
-        var shared = Shared{
-            .state = state,
-            .ui = ui,
-            .connection = &conn,
-            .render_channel = .empty,
-            .send_channel = .empty,
-        };
+        // FIXME: Wrap state in mutex
 
-        RENDER_CHANNEL = &shared.render_channel;
+        var render_channel = Channel(RenderMessage).empty;
+        var send_channel = Channel(Connection.Message).empty;
+
+        RENDER_CHANNEL = &render_channel;
         defer RENDER_CHANNEL = null;
 
-        const render_thread = try Thread.spawn(.{}, render_worker, .{&shared});
-        const input_thread = try Thread.spawn(.{}, input_worker, .{&shared});
-        const send_thread = try Thread.spawn(.{}, send_worker, .{&shared});
-        const recv_thread = try Thread.spawn(.{}, recv_worker, .{&shared});
+        const render_thread = try Thread.spawn(.{}, render_worker, .{
+            @typeInfo(@TypeOf(render_worker)).@"fn".params[0].type.?{
+                .state = &state,
+                .ui = &ui,
+                .render_channel = &render_channel,
+            },
+        });
+        const input_thread = try Thread.spawn(.{}, input_worker, .{
+            @typeInfo(@TypeOf(input_worker)).@"fn".params[0].type.?{
+                .state = &state,
+                .ui = &ui,
+                .render_channel = &render_channel,
+                .send_channel = &send_channel,
+            },
+        });
+        const send_thread = try Thread.spawn(.{}, send_worker, .{
+            @typeInfo(@TypeOf(send_worker)).@"fn".params[0].type.?{
+                .connection = &connection,
+                .send_channel = &send_channel,
+            },
+        });
+        const recv_thread = try Thread.spawn(.{}, recv_worker, .{
+            @typeInfo(@TypeOf(recv_worker)).@"fn".params[0].type.?{
+                .state = &state,
+                .connection = &connection,
+                .render_channel = &render_channel,
+            },
+        });
 
         input_thread.join();
         render_thread.detach();
@@ -102,7 +121,11 @@ const Shared = struct {
     send_channel: Channel(Connection.Message),
 };
 
-fn render_worker(shared: *Shared) void {
+fn render_worker(shared: struct {
+    state: *State,
+    ui: *Ui,
+    render_channel: *Channel(RenderMessage),
+}) void {
     shared.render_channel.send(.update);
 
     while (true) {
@@ -112,19 +135,24 @@ fn render_worker(shared: *Shared) void {
             .update => {},
         }
 
-        shared.ui.render(&shared.state);
+        shared.ui.render(shared.state);
         shared.ui.draw();
     }
 }
 
-fn input_worker(shared: *Shared) void {
-    const state = &shared.state;
+fn input_worker(shared: struct {
+    state: *State,
+    ui: *Ui,
+    render_channel: *Channel(RenderMessage),
+    send_channel: *Channel(Connection.Message),
+}) void {
+    const state = shared.state;
     var previous_state: State = undefined;
 
     var stdin = fs.File.stdin();
 
     while (true) {
-        previous_state = state.*;
+        previous_state = shared.state.*;
 
         var buffer: [1]u8 = undefined;
         const bytes_read = stdin.read(&buffer) catch {
@@ -222,7 +250,10 @@ fn input_worker(shared: *Shared) void {
     }
 }
 
-fn send_worker(shared: *Shared) void {
+fn send_worker(shared: struct {
+    connection: *Connection,
+    send_channel: *Channel(Connection.Message),
+}) void {
     while (true) {
         const message = shared.send_channel.recv();
         shared.connection.send(message) catch |err| switch (err) {
@@ -233,8 +264,11 @@ fn send_worker(shared: *Shared) void {
     }
 }
 
-// FIXME: Lock state on modification
-fn recv_worker(shared: *Shared) void {
+fn recv_worker(shared: struct {
+    state: *State,
+    connection: *Connection,
+    render_channel: *Channel(RenderMessage),
+}) void {
     while (true) {
         const message = shared.connection.recv() catch |err| switch (err) {
             error.Malformed => {
@@ -249,8 +283,8 @@ fn recv_worker(shared: *Shared) void {
                 // TODO: Handle
                 return;
             },
-            // else => |err2| return err2,
         };
+
         switch (message) {
             .count => |count| {
                 shared.state.count = count;
