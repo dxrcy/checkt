@@ -209,7 +209,15 @@ fn recv_worker(shared: *Shared) !void {
                 // TODO: Handle
                 continue;
             },
-            else => |err2| return err2,
+            error.ReadFailed => {
+                // TODO: Handle
+                return;
+            },
+            error.EndOfStream => {
+                // TODO: Handle
+                return;
+            },
+            // else => |err2| return err2,
         };
         switch (message) {
             .count => |count| {
