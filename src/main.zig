@@ -47,12 +47,18 @@ pub fn main() !u8 {
     std.posix.sigaction(std.posix.SIG.WINCH, &action, null);
 
     {
+        // TODO: Don't use single shared object; thread functions should have
+        // fine grained access
         var shared = Shared{
             .state = state,
             .ui = ui,
             .connection = &conn,
+            .render_channel = .empty,
             .send_channel = .empty,
         };
+
+        RENDER_CHANNEL = &shared.render_channel;
+        defer RENDER_CHANNEL = null;
 
         const render_thread = try Thread.spawn(.{}, render_worker, .{&shared});
         const input_thread = try Thread.spawn(.{}, input_worker, .{&shared});
@@ -73,15 +79,15 @@ pub fn main() !u8 {
 
 fn handleSignal(sig_num: c_int) callconv(.c) void {
     _ = sig_num;
-    EVENTS.send(.redraw);
+    if (RENDER_CHANNEL) |render_channel| {
+        render_channel.send(.redraw);
+    }
 }
 
-// TODO: Rename
-// TODO: Make non-global. Somehow still has to be accessible by signal handler
-var EVENTS = Channel(Event).empty;
+var RENDER_CHANNEL: ?*Channel(RenderMessage) = null;
 
 // TODO: Rename
-const Event = enum {
+const RenderMessage = enum {
     redraw,
     update,
 };
@@ -92,14 +98,15 @@ const Shared = struct {
     ui: Ui,
     connection: *Connection,
 
+    render_channel: Channel(RenderMessage),
     send_channel: Channel(Connection.Message),
 };
 
 fn render_worker(shared: *Shared) void {
-    EVENTS.send(.update);
+    shared.render_channel.send(.update);
 
     while (true) {
-        const event = EVENTS.recv();
+        const event = shared.render_channel.recv();
         switch (event) {
             .redraw => shared.ui.clear(),
             .update => {},
@@ -167,7 +174,7 @@ fn input_worker(shared: *Shared) void {
             else => {},
         }
 
-        EVENTS.send(.update);
+        shared.render_channel.send(.update);
 
         // TODO: Move the following to a function
 
@@ -247,27 +254,27 @@ fn recv_worker(shared: *Shared) void {
         switch (message) {
             .count => |count| {
                 shared.state.count = count;
-                EVENTS.send(.update);
+                shared.render_channel.send(.update);
             },
 
             .player => |player| {
                 shared.state.player_remote = player;
-                EVENTS.send(.update);
+                shared.render_channel.send(.update);
             },
 
             .piece => |update| {
                 shared.state.board.set(update.tile, update.piece);
-                EVENTS.send(.update);
+                shared.render_channel.send(.update);
             },
 
             .taken => |update| {
                 shared.state.board.setTaken(update.piece, update.count);
-                EVENTS.send(.update);
+                shared.render_channel.send(.update);
             },
 
             .status => |status| {
                 shared.state.status = status;
-                EVENTS.send(.update);
+                shared.render_channel.send(.update);
             },
         }
     }
