@@ -55,39 +55,31 @@ pub fn main() !u8 {
         RENDER_CHANNEL = &render_channel;
         defer RENDER_CHANNEL = null;
 
-        const render_thread = try Thread.spawn(.{}, render_worker, .{
-            @typeInfo(@TypeOf(render_worker)).@"fn".params[0].type.?{
-                .state = &state,
-                .ui = &ui,
-                .render_channel = &render_channel,
-            },
+        const render_thread = try Worker.spawn(.detach, render_worker, .{
+            .state = &state,
+            .ui = &ui,
+            .render_channel = &render_channel,
         });
-        const input_thread = try Thread.spawn(.{}, input_worker, .{
-            @typeInfo(@TypeOf(input_worker)).@"fn".params[0].type.?{
-                .state = &state,
-                .ui = &ui,
-                .render_channel = &render_channel,
-                .send_channel = &send_channel,
-            },
+        const input_thread = try Worker.spawn(.join, input_worker, .{
+            .state = &state,
+            .ui = &ui,
+            .render_channel = &render_channel,
+            .send_channel = &send_channel,
         });
-        const send_thread = try Thread.spawn(.{}, send_worker, .{
-            @typeInfo(@TypeOf(send_worker)).@"fn".params[0].type.?{
-                .connection = &connection,
-                .send_channel = &send_channel,
-            },
+        const send_thread = try Worker.spawn(.detach, send_worker, .{
+            .connection = &connection,
+            .send_channel = &send_channel,
         });
-        const recv_thread = try Thread.spawn(.{}, recv_worker, .{
-            @typeInfo(@TypeOf(recv_worker)).@"fn".params[0].type.?{
-                .state = &state,
-                .connection = &connection,
-                .render_channel = &render_channel,
-            },
+        const recv_thread = try Worker.spawn(.detach, recv_worker, .{
+            .state = &state,
+            .connection = &connection,
+            .render_channel = &render_channel,
         });
 
-        input_thread.join();
-        render_thread.detach();
-        send_thread.detach();
-        recv_thread.detach();
+        input_thread.consume();
+        render_thread.consume();
+        send_thread.consume();
+        recv_thread.consume();
     }
 
     // Don't `defer`, so that error can be returned if possible
@@ -95,6 +87,38 @@ pub fn main() !u8 {
 
     return 0;
 }
+
+const Worker = struct {
+    const Self = @This();
+
+    thread: Thread,
+    // TODO: Rename
+    lifetime: Lifetime,
+
+    // TODO: Rename
+    // TODO: Rename variants
+    const Lifetime = enum { join, detach };
+
+    pub fn spawn(
+        comptime lifetime: Lifetime,
+        comptime function: anytype,
+        args: @typeInfo(@TypeOf(function)).@"fn".params[0].type.?,
+    ) !Self {
+        const thread = try Thread.spawn(.{}, function, .{args});
+        return Self{
+            .thread = thread,
+            .lifetime = lifetime,
+        };
+    }
+
+    // TODO: Rename
+    pub fn consume(self: Self) void {
+        switch (self.lifetime) {
+            .join => self.thread.join(),
+            .detach => self.thread.detach(),
+        }
+    }
+};
 
 fn handleSignal(sig_num: c_int) callconv(.c) void {
     _ = sig_num;
