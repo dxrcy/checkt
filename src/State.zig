@@ -69,6 +69,7 @@ pub fn new(role: ?Role) Self {
 pub fn resetGame(self: *Self) void {
     self.status = .{ .play = .white };
     self.board = Board.new();
+    // FIXME: Correct intitial positions depending on role
     self.player_local = .{
         .focus = .{ .rank = 5, .file = 3 },
         .selected = null,
