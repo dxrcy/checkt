@@ -143,6 +143,10 @@ pub fn getTaken(self: *const Self, piece: Piece) u32 {
     return self.taken[piece.toInt()];
 }
 
+pub fn setTaken(self: *Self, piece: Piece, count: u32) void {
+    self.taken[piece.toInt()] = count;
+}
+
 pub fn addTaken(self: *Self, piece: Piece) void {
     self.taken[piece.toInt()] += 1;
 }

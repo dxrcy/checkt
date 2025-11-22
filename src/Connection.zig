@@ -133,6 +133,7 @@ pub fn recv(self: *Self) serde.DeError!Message {
 pub const Message = union(enum) {
     player: State.Player,
     piece: PieceUpdate,
+    taken: TakenUpdate,
     status: State.Status,
 
     // DEBUG
@@ -141,6 +142,10 @@ pub const Message = union(enum) {
     const PieceUpdate = struct {
         tile: State.Tile,
         piece: ?State.Piece,
+    };
+    const TakenUpdate = struct {
+        piece: State.Piece,
+        count: u32,
     };
 };
 

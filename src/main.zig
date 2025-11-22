@@ -167,7 +167,6 @@ fn input_worker(shared: *Shared) !void {
             try shared.connection.send(.{ .player = state.player_local });
         }
 
-        // TODO: Send taken pieces updates
         for (0..Board.SIZE) |rank| {
             for (0..Board.SIZE) |file| {
                 const tile = Tile{ .rank = @intCast(rank), .file = @intCast(file) };
@@ -177,6 +176,20 @@ fn input_worker(shared: *Shared) !void {
                     try shared.connection.send(.{ .piece = .{
                         .tile = tile,
                         .piece = piece_current,
+                    } });
+                }
+            }
+        }
+
+        for (std.meta.tags(State.Side)) |side| {
+            for (std.meta.tags(State.Piece.Kind)) |kind| {
+                const piece = State.Piece{ .kind = kind, .side = side };
+                const current = state.board.getTaken(piece);
+                const previous = previous_state.board.getTaken(piece);
+                if (current != previous) {
+                    try shared.connection.send(.{ .taken = .{
+                        .piece = piece,
+                        .count = current,
                     } });
                 }
             }
@@ -211,6 +224,11 @@ fn recv_worker(shared: *Shared) !void {
 
             .piece => |update| {
                 shared.state.board.set(update.tile, update.piece);
+                EVENTS.send(.update);
+            },
+
+            .taken => |update| {
+                shared.state.board.setTaken(update.piece, update.count);
                 EVENTS.send(.update);
             },
 
