@@ -44,11 +44,11 @@ pub fn main() !u8 {
     };
     std.posix.sigaction(std.posix.SIG.WINCH, &action, null);
 
-    const state = State.new(args.role);
+    var state = State.new(args.role);
 
     {
-        var state_mutex = MutexObject(State).new(state);
-        var ui_mutex = MutexObject(*Ui).new(&ui);
+        var state_mutex = MutexPtr(State).new(&state);
+        var ui_mutex = MutexPtr(Ui).new(&ui);
 
         var render_channel = Channel(RenderMessage).empty;
         var send_channel = Channel(Connection.Message).empty;
@@ -90,14 +90,14 @@ pub fn main() !u8 {
     return 0;
 }
 
-fn MutexObject(comptime T: type) type {
+fn MutexPtr(comptime T: type) type {
     return struct {
         const Self = @This();
 
         mutex: Thread.Mutex,
-        object: T,
+        object: *T,
 
-        pub fn new(object: T) Self {
+        pub fn new(object: *T) Self {
             return Self{
                 .mutex = .{},
                 .object = object,
@@ -106,7 +106,7 @@ fn MutexObject(comptime T: type) type {
 
         pub fn lock(self: *Self) *T {
             self.mutex.lock();
-            return &self.object;
+            return self.object;
         }
 
         pub fn unlock(self: *Self) void {
@@ -165,8 +165,8 @@ const RenderMessage = enum {
 };
 
 fn render_worker(shared: struct {
-    state: *MutexObject(State),
-    ui: *MutexObject(*Ui),
+    state: *MutexPtr(State),
+    ui: *MutexPtr(Ui),
     render_channel: *Channel(RenderMessage),
 }) void {
     shared.render_channel.send(.update);
@@ -174,7 +174,7 @@ fn render_worker(shared: struct {
     while (true) {
         const event = shared.render_channel.recv();
 
-        const ui = shared.ui.lock().*;
+        const ui = shared.ui.lock();
         defer shared.ui.unlock();
 
         switch (event) {
@@ -194,8 +194,8 @@ fn render_worker(shared: struct {
 }
 
 fn input_worker(shared: struct {
-    state: *MutexObject(State),
-    ui: *MutexObject(*Ui),
+    state: *MutexPtr(State),
+    ui: *MutexPtr(Ui),
     render_channel: *Channel(RenderMessage),
     send_channel: *Channel(Connection.Message),
 }) void {
@@ -251,7 +251,7 @@ fn input_worker(shared: struct {
             },
 
             'p' => {
-                const ui = shared.ui.lock().*;
+                const ui = shared.ui.lock();
                 defer shared.ui.unlock();
 
                 ui.show_debug ^= true;
@@ -323,7 +323,7 @@ fn send_worker(shared: struct {
 }
 
 fn recv_worker(shared: struct {
-    state: *MutexObject(State),
+    state: *MutexPtr(State),
     connection: *Connection,
     render_channel: *Channel(RenderMessage),
 }) void {
