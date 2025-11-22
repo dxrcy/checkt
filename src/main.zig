@@ -59,12 +59,10 @@ pub fn main() !u8 {
         const send_thread = try Thread.spawn(.{}, send_worker, .{&shared});
         const recv_thread = try Thread.spawn(.{}, recv_worker, .{&shared});
 
-        // Wait
         input_thread.join();
-        // Cancel
-        _ = render_thread;
-        _ = send_thread;
-        _ = recv_thread;
+        render_thread.detach();
+        send_thread.detach();
+        recv_thread.detach();
     }
 
     // Don't `defer`, so that error can be returned if possible
@@ -112,7 +110,7 @@ fn render_worker(shared: *Shared) void {
     }
 }
 
-fn input_worker(shared: *Shared) !void {
+fn input_worker(shared: *Shared) void {
     const state = &shared.state;
     var previous_state: State = undefined;
 
@@ -122,9 +120,11 @@ fn input_worker(shared: *Shared) !void {
         previous_state = state.*;
 
         var buffer: [1]u8 = undefined;
-        const bytes_read = try stdin.read(&buffer);
+        const bytes_read = stdin.read(&buffer) catch {
+            return;
+        };
         if (bytes_read < 1) {
-            break;
+            return;
         }
 
         switch (buffer[0]) {
@@ -215,7 +215,7 @@ fn input_worker(shared: *Shared) !void {
     }
 }
 
-fn send_worker(shared: *Shared) !void {
+fn send_worker(shared: *Shared) void {
     while (true) {
         const message = shared.send_channel.recv();
         shared.connection.send(message) catch |err| switch (err) {
@@ -227,7 +227,7 @@ fn send_worker(shared: *Shared) !void {
 }
 
 // FIXME: Lock state on modification
-fn recv_worker(shared: *Shared) !void {
+fn recv_worker(shared: *Shared) void {
     while (true) {
         const message = shared.connection.recv() catch |err| switch (err) {
             error.Malformed => {
