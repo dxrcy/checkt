@@ -138,16 +138,6 @@ const RenderMessage = enum {
     update,
 };
 
-const Shared = struct {
-    // TODO: Use pointers?
-    state: State,
-    ui: Ui,
-    connection: *Connection,
-
-    render_channel: Channel(RenderMessage),
-    send_channel: Channel(Connection.Message),
-};
-
 fn render_worker(shared: struct {
     state: *State,
     ui: *Ui,
