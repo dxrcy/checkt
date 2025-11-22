@@ -51,19 +51,20 @@ pub fn main() !u8 {
             .state = state,
             .ui = ui,
             .connection = &conn,
+            .send_channel = .init(),
         };
 
         const render_thread = try Thread.spawn(.{}, render_worker, .{&shared});
         const input_thread = try Thread.spawn(.{}, input_worker, .{&shared});
+        const send_thread = try Thread.spawn(.{}, send_worker, .{&shared});
         const recv_thread = try Thread.spawn(.{}, recv_worker, .{&shared});
-        const temp_thread = try Thread.spawn(.{}, temp_worker, .{&shared});
 
         // Wait
         input_thread.join();
         // Cancel
         _ = render_thread;
+        _ = send_thread;
         _ = recv_thread;
-        _ = temp_thread;
     }
 
     // Don't `defer`, so that error can be returned if possible
@@ -77,6 +78,8 @@ fn handleSignal(sig_num: c_int) callconv(.c) void {
     EVENTS.send(.redraw);
 }
 
+// TODO: Rename
+// TODO: Make non-global. Somehow still has to be accessible by signal handler
 var EVENTS = Channel(Event).init();
 
 // TODO: Rename
@@ -90,6 +93,8 @@ const Shared = struct {
     state: State,
     ui: Ui,
     connection: *Connection,
+
+    send_channel: Channel(Connection.Message),
 };
 
 fn render_worker(shared: *Shared) void {
@@ -173,7 +178,7 @@ fn input_worker(shared: *Shared) !void {
                 previous_state.player_local.selected != null and
                 state.player_local.selected.?.eql(previous_state.player_local.selected.?)))
         {
-            try shared.connection.send(.{ .player = state.player_local });
+            shared.send_channel.send(.{ .player = state.player_local });
         }
 
         for (0..Board.SIZE) |rank| {
@@ -182,7 +187,7 @@ fn input_worker(shared: *Shared) !void {
                 const piece_current = state.board.get(tile);
                 const piece_previous = previous_state.board.get(tile);
                 if (piece_current != piece_previous) {
-                    try shared.connection.send(.{ .piece = .{
+                    shared.send_channel.send(.{ .piece = .{
                         .tile = tile,
                         .piece = piece_current,
                     } });
@@ -196,7 +201,7 @@ fn input_worker(shared: *Shared) !void {
                 const current = state.board.getTaken(piece);
                 const previous = previous_state.board.getTaken(piece);
                 if (current != previous) {
-                    try shared.connection.send(.{ .taken = .{
+                    shared.send_channel.send(.{ .taken = .{
                         .piece = piece,
                         .count = current,
                     } });
@@ -205,8 +210,19 @@ fn input_worker(shared: *Shared) !void {
         }
 
         if (!state.status.eql(previous_state.status)) {
-            try shared.connection.send(.{ .status = state.status });
+            shared.send_channel.send(.{ .status = state.status });
         }
+    }
+}
+
+fn send_worker(shared: *Shared) !void {
+    while (true) {
+        const message = shared.send_channel.recv();
+        shared.connection.send(message) catch |err| switch (err) {
+            error.WriteFailed => {
+                // TODO: Handle
+            },
+        };
     }
 }
 
@@ -254,19 +270,5 @@ fn recv_worker(shared: *Shared) !void {
                 EVENTS.send(.update);
             },
         }
-    }
-}
-
-fn temp_worker(shared: *Shared) !void {
-    if (shared.state.role != .host) {
-        return;
-    }
-
-    while (true) {
-        Thread.sleep(500 * std.time.ns_per_ms);
-        shared.state.count += 1;
-
-        EVENTS.send(.update);
-        try shared.connection.send(.{ .count = shared.state.count });
     }
 }
