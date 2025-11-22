@@ -32,8 +32,6 @@ pub fn main() !u8 {
     try connection.init();
     defer connection.deinit();
 
-    var state = State.new(args.role);
-
     var ui = Ui.new(args.ascii);
     try ui.enter();
     // Restore terminal, if anything goes wrong
@@ -47,7 +45,10 @@ pub fn main() !u8 {
     std.posix.sigaction(std.posix.SIG.WINCH, &action, null);
 
     {
-        // FIXME: Wrap state in mutex
+        const state = State.new(args.role);
+
+        var state_mutex = MutexObject(State).new(state);
+        // FIXME: Wrap ui in mutex
 
         var render_channel = Channel(RenderMessage).empty;
         var send_channel = Channel(Connection.Message).empty;
@@ -57,12 +58,12 @@ pub fn main() !u8 {
 
         const workers = [_]Worker{
             try Worker.spawn("render", .detach, render_worker, .{
-                .state = &state,
+                .state = &state_mutex,
                 .ui = &ui,
                 .render_channel = &render_channel,
             }),
             try Worker.spawn("input", .join, input_worker, .{
-                .state = &state,
+                .state = &state_mutex,
                 .ui = &ui,
                 .render_channel = &render_channel,
                 .send_channel = &send_channel,
@@ -72,7 +73,7 @@ pub fn main() !u8 {
                 .send_channel = &send_channel,
             }),
             try Worker.spawn("recv", .detach, recv_worker, .{
-                .state = &state,
+                .state = &state_mutex,
                 .connection = &connection,
                 .render_channel = &render_channel,
             }),
@@ -87,6 +88,31 @@ pub fn main() !u8 {
     try ui.exit();
 
     return 0;
+}
+
+fn MutexObject(comptime T: type) type {
+    return struct {
+        const Self = @This();
+
+        mutex: Thread.Mutex,
+        object: T,
+
+        pub fn new(object: T) Self {
+            return Self{
+                .mutex = .{},
+                .object = object,
+            };
+        }
+
+        pub fn lock(self: *Self) *T {
+            self.mutex.lock();
+            return &self.object;
+        }
+
+        pub fn unlock(self: *Self) void {
+            self.mutex.unlock();
+        }
+    };
 }
 
 const Worker = struct {
@@ -139,7 +165,7 @@ const RenderMessage = enum {
 };
 
 fn render_worker(shared: struct {
-    state: *State,
+    state: *MutexObject(State),
     ui: *Ui,
     render_channel: *Channel(RenderMessage),
 }) void {
@@ -152,25 +178,28 @@ fn render_worker(shared: struct {
             .update => {},
         }
 
-        shared.ui.render(shared.state);
+        {
+            const state = shared.state.lock();
+            defer shared.state.unlock();
+
+            shared.ui.render(state);
+        }
+
         shared.ui.draw();
     }
 }
 
 fn input_worker(shared: struct {
-    state: *State,
+    state: *MutexObject(State),
     ui: *Ui,
     render_channel: *Channel(RenderMessage),
     send_channel: *Channel(Connection.Message),
 }) void {
-    const state = shared.state;
     var previous_state: State = undefined;
 
     var stdin = fs.File.stdin();
 
     while (true) {
-        previous_state = shared.state.*;
-
         var buffer: [1]u8 = undefined;
         const bytes_read = stdin.read(&buffer) catch {
             return;
@@ -178,6 +207,11 @@ fn input_worker(shared: struct {
         if (bytes_read < 1) {
             return;
         }
+
+        const state = shared.state.lock();
+        defer shared.state.unlock();
+
+        previous_state = state.*;
 
         switch (buffer[0]) {
             0x03 => break,
@@ -282,7 +316,7 @@ fn send_worker(shared: struct {
 }
 
 fn recv_worker(shared: struct {
-    state: *State,
+    state: *MutexObject(State),
     connection: *Connection,
     render_channel: *Channel(RenderMessage),
 }) void {
@@ -302,29 +336,32 @@ fn recv_worker(shared: struct {
             },
         };
 
+        const state = shared.state.lock();
+        defer shared.state.unlock();
+
         switch (message) {
             .count => |count| {
-                shared.state.count = count;
+                state.count = count;
                 shared.render_channel.send(.update);
             },
 
             .player => |player| {
-                shared.state.player_remote = player;
+                state.player_remote = player;
                 shared.render_channel.send(.update);
             },
 
             .piece => |update| {
-                shared.state.board.set(update.tile, update.piece);
+                state.board.set(update.tile, update.piece);
                 shared.render_channel.send(.update);
             },
 
             .taken => |update| {
-                shared.state.board.setTaken(update.piece, update.count);
+                state.board.setTaken(update.piece, update.count);
                 shared.render_channel.send(.update);
             },
 
             .status => |status| {
-                shared.state.status = status;
+                state.status = status;
                 shared.render_channel.send(.update);
             },
         }
