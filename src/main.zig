@@ -55,31 +55,32 @@ pub fn main() !u8 {
         RENDER_CHANNEL = &render_channel;
         defer RENDER_CHANNEL = null;
 
-        const render_thread = try Worker.spawn(.detach, render_worker, .{
-            .state = &state,
-            .ui = &ui,
-            .render_channel = &render_channel,
-        });
-        const input_thread = try Worker.spawn(.join, input_worker, .{
-            .state = &state,
-            .ui = &ui,
-            .render_channel = &render_channel,
-            .send_channel = &send_channel,
-        });
-        const send_thread = try Worker.spawn(.detach, send_worker, .{
-            .connection = &connection,
-            .send_channel = &send_channel,
-        });
-        const recv_thread = try Worker.spawn(.detach, recv_worker, .{
-            .state = &state,
-            .connection = &connection,
-            .render_channel = &render_channel,
-        });
+        const workers = [_]Worker{
+            try Worker.spawn(.detach, render_worker, .{
+                .state = &state,
+                .ui = &ui,
+                .render_channel = &render_channel,
+            }),
+            try Worker.spawn(.join, input_worker, .{
+                .state = &state,
+                .ui = &ui,
+                .render_channel = &render_channel,
+                .send_channel = &send_channel,
+            }),
+            try Worker.spawn(.detach, send_worker, .{
+                .connection = &connection,
+                .send_channel = &send_channel,
+            }),
+            try Worker.spawn(.detach, recv_worker, .{
+                .state = &state,
+                .connection = &connection,
+                .render_channel = &render_channel,
+            }),
+        };
 
-        input_thread.consume();
-        render_thread.consume();
-        send_thread.consume();
-        recv_thread.consume();
+        for (&workers) |*worker| {
+            worker.consume();
+        }
     }
 
     // Don't `defer`, so that error can be returned if possible
