@@ -56,22 +56,22 @@ pub fn main() !u8 {
         defer RENDER_CHANNEL = null;
 
         const workers = [_]Worker{
-            try Worker.spawn(.detach, render_worker, .{
+            try Worker.spawn("render", .detach, render_worker, .{
                 .state = &state,
                 .ui = &ui,
                 .render_channel = &render_channel,
             }),
-            try Worker.spawn(.join, input_worker, .{
+            try Worker.spawn("input", .join, input_worker, .{
                 .state = &state,
                 .ui = &ui,
                 .render_channel = &render_channel,
                 .send_channel = &send_channel,
             }),
-            try Worker.spawn(.detach, send_worker, .{
+            try Worker.spawn("send", .detach, send_worker, .{
                 .connection = &connection,
                 .send_channel = &send_channel,
             }),
-            try Worker.spawn(.detach, recv_worker, .{
+            try Worker.spawn("recv", .detach, recv_worker, .{
                 .state = &state,
                 .connection = &connection,
                 .render_channel = &render_channel,
@@ -101,11 +101,13 @@ const Worker = struct {
     const Lifetime = enum { join, detach };
 
     pub fn spawn(
+        comptime name: []const u8,
         comptime lifetime: Lifetime,
         comptime function: anytype,
         args: @typeInfo(@TypeOf(function)).@"fn".params[0].type.?,
     ) !Self {
-        const thread = try Thread.spawn(.{}, function, .{args});
+        var thread = try Thread.spawn(.{}, function, .{args});
+        try thread.setName(name);
         return Self{
             .thread = thread,
             .lifetime = lifetime,
