@@ -51,7 +51,7 @@ pub fn main() !u8 {
             .state = state,
             .ui = ui,
             .connection = &conn,
-            .send_channel = .init(),
+            .send_channel = .empty,
         };
 
         const render_thread = try Thread.spawn(.{}, render_worker, .{&shared});
@@ -80,7 +80,7 @@ fn handleSignal(sig_num: c_int) callconv(.c) void {
 
 // TODO: Rename
 // TODO: Make non-global. Somehow still has to be accessible by signal handler
-var EVENTS = Channel(Event).init();
+var EVENTS = Channel(Event).empty;
 
 // TODO: Rename
 const Event = enum {

@@ -12,14 +12,12 @@ pub fn Channel(comptime T: type) type {
         can_send: Thread.Condition,
         can_recv: Thread.Condition,
 
-        pub fn init() Self {
-            return Self{
-                .queue = Queue(T).init(),
-                .mutex = .{},
-                .can_send = .{},
-                .can_recv = .{},
-            };
-        }
+        pub const empty = Self{
+            .queue = .empty,
+            .mutex = .{},
+            .can_send = .{},
+            .can_recv = .{},
+        };
 
         pub fn send(self: *Self, item: T) void {
             self.mutex.lock();
@@ -58,12 +56,10 @@ pub fn Queue(comptime T: type) type {
         buffer: [BUFFER_SIZE]T,
         length: usize,
 
-        pub fn init() Self {
-            return Self{
-                .buffer = undefined,
-                .length = 0,
-            };
-        }
+        pub const empty = Self{
+            .buffer = undefined,
+            .length = 0,
+        };
 
         pub fn push(self: *Self, item: T) void {
             self.buffer[self.length] = item;
