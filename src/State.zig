@@ -67,15 +67,18 @@ pub fn new(role: ?Role) Self {
 }
 
 pub fn resetGame(self: *Self) void {
+    const FOCUS_WHITE = Tile{ .rank = 5, .file = 6 };
+    const FOCUS_BLACK = Tile{ .rank = 2, .file = 1 };
+
     self.status = .{ .play = .white };
     self.board = Board.new();
-    // FIXME: Correct intitial positions depending on role
+
     self.player_local = .{
-        .focus = .{ .rank = 5, .file = 3 },
+        .focus = if (self.role == .join) FOCUS_BLACK else FOCUS_WHITE,
         .selected = null,
     };
     self.player_remote = if (self.role == null) null else .{
-        .focus = .{ .rank = 3, .file = 3 },
+        .focus = if (self.role == .join) FOCUS_WHITE else FOCUS_BLACK,
         .selected = null,
     };
 
