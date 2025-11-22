@@ -5,13 +5,16 @@ const posix = std.posix;
 const Thread = std.Thread;
 
 const Args = @import("Args.zig");
-const Channel = @import("Channel.zig");
 const Board = @import("Board.zig");
 const Ui = @import("Ui.zig");
 const Connection = @import("Connection.zig");
 
 const State = @import("State.zig");
 const Tile = State.Tile;
+
+const channel = @import("channel.zig");
+const Channel = channel.Channel;
+const Queue = channel.Queue;
 
 pub fn main() !u8 {
     const args = Args.parse() orelse {
@@ -74,7 +77,13 @@ fn handleSignal(sig_num: c_int) callconv(.c) void {
     EVENTS.send(.redraw);
 }
 
-var EVENTS = Channel.init();
+var EVENTS = Channel(Event).init();
+
+// TODO: Rename
+const Event = enum {
+    redraw,
+    update,
+};
 
 const Shared = struct {
     // TODO: Use pointers?
