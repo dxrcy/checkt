@@ -39,8 +39,12 @@ pub fn serialize(comptime T: type, value: *const T, writer: *Io.Writer) SerError
 
     switch (@typeInfo(T)) {
         .int => {
-            comptime std.debug.assert(!std.mem.eql(u8, @typeName(T), "usize"));
-            try writer.writeInt(resizeIntToBytes(T), value.*, ENDIAN);
+            const fixed_type = if (T == usize) u64 else u32;
+            try writer.writeInt(
+                resizeIntToBytes(fixed_type),
+                @intCast(value.*),
+                ENDIAN,
+            );
         },
 
         .@"enum" => {
@@ -111,8 +115,11 @@ pub fn deserialize(comptime T: type, reader: *Io.Reader) DeError!T {
 
     switch (@typeInfo(T)) {
         .int => {
-            comptime std.debug.assert(!std.mem.eql(u8, @typeName(T), "usize"));
-            const padded = try reader.takeInt(resizeIntToBytes(T), ENDIAN);
+            const fixed_type = if (T == usize) u64 else u32;
+            const padded: fixed_type = @intCast(try reader.takeInt(
+                resizeIntToBytes(fixed_type),
+                ENDIAN,
+            ));
             return math.cast(T, padded) orelse {
                 return error.Malformed;
             };
@@ -148,7 +155,7 @@ pub fn deserialize(comptime T: type, reader: *Io.Reader) DeError!T {
 
         .@"union" => |unn| {
             const tag_type = unn.tag_type orelse {
-                @compileError("serialization is not supported for untagged unions");
+                @compileError("deserialization is not supported for untagged unions");
             };
             const tag = try deserialize(tag_type, reader);
 
