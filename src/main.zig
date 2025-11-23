@@ -26,12 +26,17 @@ const handlers = struct {
         var RENDER_CHANNEL: ?*Channel(RenderMessage) = null;
     };
 
+    threadlocal var THREAD_NAME: ?[]const u8 = null;
+
     pub fn panic(msg: []const u8, first_trace_addr: ?usize) noreturn {
         if (globals.UI) |ui| {
             ui.exit() catch {};
         }
 
-        std.debug.print("panic: {s}\n", .{msg});
+        std.debug.print("thread '{s}' panic: {s}\n", .{
+            THREAD_NAME orelse "??",
+            msg,
+        });
         std.debug.dumpCurrentStackTrace(first_trace_addr orelse @returnAddress());
 
         std.process.abort();
@@ -164,14 +169,22 @@ const Worker = struct {
     // TODO: Rename variants
     const Lifetime = enum { join, detach };
 
+    fn functionWrapper(
+        comptime name: []const u8,
+        comptime function: anytype,
+        args: @typeInfo(@TypeOf(function)).@"fn".params[0].type.?,
+    ) void {
+        handlers.THREAD_NAME = name;
+        function(args);
+    }
+
     pub fn spawn(
         comptime name: []const u8,
         comptime lifetime: Lifetime,
         comptime function: anytype,
         args: @typeInfo(@TypeOf(function)).@"fn".params[0].type.?,
     ) !Self {
-        var thread = try Thread.spawn(.{}, function, .{args});
-        try thread.setName(name);
+        const thread = try Thread.spawn(.{}, functionWrapper, .{ name, function, args });
         return Self{
             .thread = thread,
             .lifetime = lifetime,
