@@ -1,7 +1,6 @@
 const std = @import("std");
 const assert = std.debug.assert;
 const fs = std.fs;
-const posix = std.posix;
 const Thread = std.Thread;
 
 const Args = @import("Args.zig");
@@ -17,21 +16,45 @@ const channel = @import("channel.zig");
 const Channel = channel.Channel;
 const Queue = channel.Queue;
 
-pub const panic = std.debug.FullPanic(myPanic);
+pub const panic = std.debug.FullPanic(handlers.panic);
 
-// TODO: Move this (and RENDER_CHANNEL) to namespace
-var UI: ?*Ui = null;
+const handlers = struct {
+    const posix = std.posix;
 
-fn myPanic(msg: []const u8, first_trace_addr: ?usize) noreturn {
-    if (UI) |ui| {
-        ui.exit() catch {};
+    const globals = struct {
+        var UI: ?*Ui = null;
+        var RENDER_CHANNEL: ?*Channel(RenderMessage) = null;
+    };
+
+    pub fn panic(msg: []const u8, first_trace_addr: ?usize) noreturn {
+        if (globals.UI) |ui| {
+            ui.exit() catch {};
+        }
+
+        std.debug.print("panic: {s}\n", .{msg});
+        std.debug.dumpCurrentStackTrace(first_trace_addr orelse @returnAddress());
+
+        std.process.abort();
     }
 
-    std.debug.print("panic: {s}\n", .{msg});
-    std.debug.dumpCurrentStackTrace(first_trace_addr orelse @returnAddress());
+    pub fn registerSignalHandlers() void {
+        const action = posix.Sigaction{
+            .handler = .{ .handler = handlers.signal },
+            .mask = posix.sigemptyset(),
+            .flags = 0,
+        };
 
-    std.process.abort();
-}
+        posix.sigaction(posix.SIG.WINCH, &action, null);
+    }
+
+    fn signal(sig_num: c_int) callconv(.c) void {
+        _ = sig_num;
+
+        if (globals.RENDER_CHANNEL) |render_channel| {
+            render_channel.send(.redraw);
+        }
+    }
+};
 
 pub fn main() !u8 {
     const args = Args.parse() orelse {
@@ -53,14 +76,11 @@ pub fn main() !u8 {
     try ui.enter();
     // Restore terminal, if anything goes wrong
     errdefer ui.exit() catch unreachable;
-    UI = &ui;
 
-    const action = std.posix.Sigaction{
-        .handler = .{ .handler = handleSignal },
-        .mask = std.posix.sigemptyset(),
-        .flags = 0,
-    };
-    std.posix.sigaction(std.posix.SIG.WINCH, &action, null);
+    handlers.globals.UI = &ui;
+    defer handlers.globals.UI = null;
+
+    handlers.registerSignalHandlers();
 
     var state = State.new(args.role);
 
@@ -71,8 +91,8 @@ pub fn main() !u8 {
         var render_channel = Channel(RenderMessage).empty;
         var send_channel = Channel(Connection.Message).empty;
 
-        RENDER_CHANNEL = &render_channel;
-        defer RENDER_CHANNEL = null;
+        handlers.globals.RENDER_CHANNEL = &render_channel;
+        defer handlers.globals.RENDER_CHANNEL = null;
 
         const workers = [_]Worker{
             try Worker.spawn("render", .detach, render_worker, .{
@@ -166,15 +186,6 @@ const Worker = struct {
         }
     }
 };
-
-fn handleSignal(sig_num: c_int) callconv(.c) void {
-    _ = sig_num;
-    if (RENDER_CHANNEL) |render_channel| {
-        render_channel.send(.redraw);
-    }
-}
-
-var RENDER_CHANNEL: ?*Channel(RenderMessage) = null;
 
 // TODO: Rename
 const RenderMessage = enum {
