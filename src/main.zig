@@ -218,26 +218,66 @@ fn input_worker(shared: struct {
 
         previous_state = state.*;
 
-        switch (buffer[0]) {
-            0x03 => break,
+        // TODO: Map input to enum variant, then handle in `Game`
 
-            'h' => if (state.status == .play) state.moveFocus(.left),
-            'l' => if (state.status == .play) state.moveFocus(.right),
-            'k' => if (state.status == .play) state.moveFocus(.up),
-            'j' => if (state.status == .play) state.moveFocus(.down),
+        const Input = enum(u8) {
+            quit,
 
-            0x20 => if (state.status == .play) {
+            up,
+            down,
+            left,
+            right,
+
+            confirm,
+            cancel,
+            reset,
+
+            debug_switch_side,
+            debug_force_move,
+            debug_toggle_info,
+
+            _,
+        };
+
+        const input: Input = switch (buffer[0]) {
+            0x03 => .quit,
+
+            'h' => .left,
+            'l' => .right,
+            'k' => .up,
+            'j' => .down,
+
+            0x20 => .confirm,
+            0x1b => .cancel,
+            'r' => .reset,
+
+            't' => .debug_switch_side,
+            'y' => .debug_force_move,
+            'p' => .debug_toggle_info,
+
+            else => continue,
+        };
+
+        switch (input) {
+            .quit => break,
+
+            .left => if (state.status == .play) state.moveFocus(.left),
+            .right => if (state.status == .play) state.moveFocus(.right),
+            .up => if (state.status == .play) state.moveFocus(.up),
+            .down => if (state.status == .play) state.moveFocus(.down),
+
+            .confirm => if (state.status == .play) {
                 Game.toggleSelection(state, false, shared.send_channel);
             },
-            0x1b => if (state.status == .play) {
+            .cancel => if (state.status == .play) {
                 state.player_local.selected = null;
             },
 
-            'r' => if (state.status == .win) {
+            .reset => if (state.status == .win) {
                 state.resetGame();
             },
 
-            't' => switch (state.status) {
+            .debug_switch_side => switch (state.status) {
                 .play => |*side| {
                     side.* = side.flip();
                     state.player_local.selected = null;
@@ -247,18 +287,18 @@ fn input_worker(shared: struct {
                 },
                 else => {},
             },
-            'y' => if (state.status == .play) {
+            .debug_force_move => if (state.status == .play) {
                 Game.toggleSelection(state, true, shared.send_channel);
             },
 
-            'p' => {
+            .debug_toggle_info => {
                 const ui = shared.ui.lock();
                 defer shared.ui.unlock();
 
                 ui.show_debug ^= true;
             },
 
-            else => {},
+            _ => {},
         }
 
         shared.render_channel.send(.update);
