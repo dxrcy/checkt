@@ -99,7 +99,7 @@ const colors = struct {
     pub const PLACEHOLDER = .bright_black;
     pub const HIGHLIGHT = .yellow;
 
-    pub const REMOTE = .green;
+    pub const REMOTE = .blue;
 };
 
 pub fn render(self: *Self, state: *const State) void {
@@ -272,7 +272,7 @@ pub fn render(self: *Self, state: *const State) void {
                 }
 
                 self.renderRectHighlight(getTileRect(player_remote.focus), .{
-                    .fg = .green,
+                    .fg = colors.REMOTE,
                     .bold = true,
                 });
             }
