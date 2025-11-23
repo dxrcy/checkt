@@ -120,7 +120,7 @@ pub fn send(self: *Self, message: Message) serde.SerError!void {
 
     simulateLatency();
 
-    try serde.serialize(Message, message, &self.writer.interface);
+    try serde.serialize(Message, &message, &self.writer.interface);
     try self.writer.interface.flush();
 }
 

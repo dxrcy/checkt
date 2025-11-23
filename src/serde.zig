@@ -11,20 +11,19 @@ pub const DeError =
     Io.Reader.Error ||
     error{Malformed};
 
-// PERF: Pass `T` by reference
-pub fn serialize(comptime T: type, value: T, writer: *Io.Writer) SerError!void {
+pub fn serialize(comptime T: type, value: *const T, writer: *Io.Writer) SerError!void {
     switch (@typeInfo(T)) {
         .@"struct", .@"union", .@"enum" => {
             if (@hasDecl(T, "serialize")) {
                 const func = switch (@typeInfo(@TypeOf(T.serialize))) {
                     .@"fn" => |func| func,
-                    else => @compileError("custom `seraliaze` declaration for type `" ++ @typeName(T) ++ "` in not a function"),
+                    else => @compileError("custom `serialize` declaration for type `" ++ @typeName(T) ++ "` in not a function"),
                 };
-                if (func.params[0].type != T or
+                if (func.params[0].type != *const T or
                     func.params[1].type != *Io.Writer or
                     func.return_type != SerError!void)
                 {
-                    @compileError("custom `seraliaze` function for type `" ++ @typeName(T) ++ "` does not have correct signature");
+                    @compileError("custom `serialize` function for type `" ++ @typeName(T) ++ "` does not have correct signature");
                 }
 
                 try value.serialize(writer);
@@ -38,27 +37,27 @@ pub fn serialize(comptime T: type, value: T, writer: *Io.Writer) SerError!void {
     switch (@typeInfo(T)) {
         .int => {
             comptime std.debug.assert(!std.mem.eql(u8, @typeName(T), "usize"));
-            try writer.writeInt(resizeIntToBytes(T), value, ENDIAN);
+            try writer.writeInt(resizeIntToBytes(T), value.*, ENDIAN);
         },
 
         .@"enum" => {
-            const int = @intFromEnum(value);
-            try serialize(@TypeOf(int), int, writer);
+            const int = @intFromEnum(value.*);
+            try serialize(@TypeOf(int), &int, writer);
         },
 
         .optional => |optional| {
-            if (value) |value_child| {
-                try serialize(u8, 1, writer);
-                try serialize(optional.child, value_child, writer);
+            if (value.*) |value_child| {
+                try serialize(u8, &1, writer);
+                try serialize(optional.child, &value_child, writer);
             } else {
-                try serialize(u8, 0, writer);
+                try serialize(u8, &0, writer);
             }
         },
 
         .@"struct" => |strct| {
             inline for (strct.fields) |field| {
                 const field_value = @field(value, field.name);
-                try serialize(@TypeOf(field_value), field_value, writer);
+                try serialize(@TypeOf(field_value), &field_value, writer);
             }
         },
 
@@ -66,13 +65,13 @@ pub fn serialize(comptime T: type, value: T, writer: *Io.Writer) SerError!void {
             const tag_type = unn.tag_type orelse {
                 @compileError("serialization is not supported for type untagged unions");
             };
-            const tag = @as(tag_type, value);
-            try serialize(tag_type, tag, writer);
+            const tag = @as(tag_type, value.*);
+            try serialize(tag_type, &tag, writer);
 
             inline for (unn.fields, 0..) |field, i| {
                 if (i == @intFromEnum(tag)) {
                     const field_value = @field(value, field.name);
-                    try serialize(field.type, field_value, writer);
+                    try serialize(field.type, &field_value, writer);
                     return;
                 }
             }
