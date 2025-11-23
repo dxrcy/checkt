@@ -136,7 +136,7 @@ pub fn recv(self: *Self) serde.DeError!Message {
 
 fn simulateLatency() void {
     const MINIMUM_MS = 0;
-    const EXTRA_MS = 400;
+    const EXTRA_MS = 200;
 
     var random: u64 = undefined;
     std.posix.getrandom(std.mem.asBytes(&random)) catch unreachable;
