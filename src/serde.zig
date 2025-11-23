@@ -11,7 +11,30 @@ pub const DeError =
     Io.Reader.Error ||
     error{Malformed};
 
+// PERF: Pass `T` by reference
 pub fn serialize(comptime T: type, value: T, writer: *Io.Writer) SerError!void {
+    switch (@typeInfo(T)) {
+        .@"struct", .@"union", .@"enum" => {
+            if (@hasDecl(T, "serialize")) {
+                const func = switch (@typeInfo(@TypeOf(T.serialize))) {
+                    .@"fn" => |func| func,
+                    else => @compileError("custom `seraliaze` declaration for type `" ++ @typeName(T) ++ "` in not a function"),
+                };
+                if (func.params[0].type != T or
+                    func.params[1].type != *Io.Writer or
+                    func.return_type != SerError!void)
+                {
+                    @compileError("custom `seraliaze` function for type `" ++ @typeName(T) ++ "` does not have correct signature");
+                }
+
+                try value.serialize(writer);
+                return;
+            }
+        },
+
+        else => {},
+    }
+
     switch (@typeInfo(T)) {
         .int => {
             comptime std.debug.assert(!std.mem.eql(u8, @typeName(T), "usize"));
