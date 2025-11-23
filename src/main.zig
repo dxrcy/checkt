@@ -17,6 +17,22 @@ const channel = @import("channel.zig");
 const Channel = channel.Channel;
 const Queue = channel.Queue;
 
+pub const panic = std.debug.FullPanic(myPanic);
+
+// TODO: Move this (and RENDER_CHANNEL) to namespace
+var UI: ?*Ui = null;
+
+fn myPanic(msg: []const u8, first_trace_addr: ?usize) noreturn {
+    if (UI) |ui| {
+        ui.exit() catch {};
+    }
+
+    std.debug.print("panic: {s}\n", .{msg});
+    std.debug.dumpCurrentStackTrace(first_trace_addr orelse @returnAddress());
+
+    std.process.abort();
+}
+
 pub fn main() !u8 {
     const args = Args.parse() orelse {
         return 1;
@@ -37,6 +53,7 @@ pub fn main() !u8 {
     try ui.enter();
     // Restore terminal, if anything goes wrong
     errdefer ui.exit() catch unreachable;
+    UI = &ui;
 
     const action = std.posix.Sigaction{
         .handler = .{ .handler = handleSignal },
