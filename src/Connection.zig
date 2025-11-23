@@ -149,9 +149,6 @@ pub const Message = union(enum) {
     taken: TakenUpdate,
     status: State.Status,
 
-    // DEBUG
-    count: u32,
-
     const PieceUpdate = struct {
         tile: State.Tile,
         piece: ?State.Piece,

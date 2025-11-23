@@ -16,9 +16,6 @@ board: Board,
 player_local: Player,
 player_remote: ?Player,
 
-// DEBUG
-count: u32,
-
 pub const Role = enum {
     host,
     join,
@@ -60,7 +57,6 @@ pub fn new(role: ?Role) Self {
         .board = undefined,
         .player_local = undefined,
         .player_remote = undefined,
-        .count = undefined,
     };
     self.resetGame();
     return self;
@@ -81,8 +77,6 @@ pub fn resetGame(self: *Self) void {
         .focus = if (self.role == .join) FOCUS_WHITE else FOCUS_BLACK,
         .selected = null,
     };
-
-    self.count = 0;
 }
 
 pub fn moveFocus(self: *Self, direction: enum { left, right, up, down }) void {

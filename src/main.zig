@@ -347,11 +347,6 @@ fn recv_worker(shared: struct {
         defer shared.state.unlock();
 
         switch (message) {
-            .count => |count| {
-                state.count = count;
-                shared.render_channel.send(.update);
-            },
-
             .player => |player| {
                 state.player_remote = player;
                 shared.render_channel.send(.update);

@@ -288,9 +288,9 @@ pub fn render(self: *Self, state: *const State) void {
         },
     }
 
-    var buffer: [10]u8 = undefined;
-    const string = std.fmt.bufPrint(&buffer, "{}", .{state.count}) catch unreachable;
-    self.renderTextLineNormal(string, 0, 0, .{});
+    // var buffer: [10]u8 = undefined;
+    // const string = std.fmt.bufPrint(&buffer, "{}", .{state.count}) catch unreachable;
+    // self.renderTextLineNormal(string, 0, 0, .{});
 
     // self.renderTextLineNormal(
     //     if (state.role == .host) "host" else "join",
