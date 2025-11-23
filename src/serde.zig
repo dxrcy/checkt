@@ -23,7 +23,10 @@ pub fn serialize(comptime T: type, value: *const T, writer: *Io.Writer) SerError
                     func.params[1].type != *Io.Writer or
                     func.return_type != SerError!void)
                 {
-                    @compileError("custom `serialize` function for type `" ++ @typeName(T) ++ "` does not have correct signature");
+                    @compileError("custom `serialize` method for type `" ++ @typeName(T) ++ "` does not have correct signature");
+                }
+                if (!@hasDecl(T, "deserialize")) {
+                    @compileError(@typeName(T) ++ " has custom `serialize` method with no corresponding `deserialize` method");
                 }
 
                 try value.serialize(writer);
@@ -93,7 +96,10 @@ pub fn deserialize(comptime T: type, reader: *Io.Reader) DeError!T {
                 if (func.params[0].type != *Io.Reader or
                     func.return_type != DeError!T)
                 {
-                    @compileError("custom `deserialize` function for type `" ++ @typeName(T) ++ "` does not have correct signature");
+                    @compileError("custom `deserialize` method for type `" ++ @typeName(T) ++ "` does not have correct signature");
+                }
+                if (!@hasDecl(T, "serialize")) {
+                    @compileError(@typeName(T) ++ " has custom `deserialize` method with no corresponding `serialize` method");
                 }
 
                 return try T.deserialize(reader);
