@@ -6,8 +6,9 @@ const Thread = std.Thread;
 
 const Args = @import("Args.zig");
 const Board = @import("Board.zig");
-const Ui = @import("Ui.zig");
 const Connection = @import("Connection.zig");
+const Game = @import("Game.zig");
+const Ui = @import("Ui.zig");
 
 const State = @import("State.zig");
 const Tile = State.Tile;
@@ -226,7 +227,7 @@ fn input_worker(shared: struct {
             'j' => if (state.status == .play) state.moveFocus(.down),
 
             0x20 => if (state.status == .play) {
-                state.toggleSelection(false, shared.send_channel);
+                Game.toggleSelection(state, false, shared.send_channel);
             },
             0x1b => if (state.status == .play) {
                 state.player_local.selected = null;
@@ -247,7 +248,7 @@ fn input_worker(shared: struct {
                 else => {},
             },
             'y' => if (state.status == .play) {
-                state.toggleSelection(true, shared.send_channel);
+                Game.toggleSelection(state, true, shared.send_channel);
             },
 
             'p' => {

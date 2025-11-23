@@ -109,84 +109,6 @@ pub fn moveFocus(self: *Self, direction: enum { left, right, up, down }) void {
     }
 }
 
-// TODO: Create new object for gameplay. Which modifies state and sends
-// messages through connection. So state is not coupled with connection or
-// any channel
-
-const Connection = @import("Connection.zig");
-const Channel = @import("channel.zig").Channel;
-
-// TODO: Rename
-pub fn toggleSelection(
-    self: *Self,
-    allow_invalid: bool,
-    channel: *Channel(Connection.Message),
-) void {
-    const side = switch (self.status) {
-        .play => |side| side,
-        else => unreachable,
-    };
-
-    if (!self.isSelfActive()) {
-        return;
-    }
-
-    const player = &self.player_local;
-
-    const selected = player.selected orelse {
-        const piece = self.board.get(player.focus);
-        if (piece != null and
-            piece.?.side == side)
-        {
-            player.selected = player.focus;
-        }
-        return;
-    };
-
-    if (selected.eql(player.focus)) {
-        player.selected = null;
-        return;
-    }
-
-    const piece = self.board.get(selected);
-    assert(piece.?.side == side);
-
-    // DEBUG
-    if (allow_invalid) {
-        if (self.board.get(player.focus)) |piece_taken| {
-            self.board.addTaken(piece_taken);
-        }
-
-        const updates = self.board.movePieceOverride(selected, player.focus, false);
-        for (updates) |update| {
-            channel.send(.{ .piece = update });
-        }
-
-        player.selected = null;
-        if (!self.updateStatus()) {
-            self.status = .{ .play = side.flip() };
-        }
-        return;
-    }
-
-    const move = self.getAvailableMove(selected, player.focus) orelse
-        return;
-    assert(move.destination.eql(player.focus));
-
-    const updates = self.board.applyMove(selected, move);
-    for (updates) |update_opt| {
-        if (update_opt) |update| {
-            channel.send(.{ .piece = update });
-        }
-    }
-
-    player.selected = null;
-
-    if (!self.updateStatus()) {
-        self.status = .{ .play = side.flip() };
-    }
-}
-
 pub fn isSelfActive(self: *const Self) bool {
     const side = switch (self.status) {
         .play => |side| side,
@@ -198,7 +120,8 @@ pub fn isSelfActive(self: *const Self) bool {
     return (side == .white) == (self.role == .host);
 }
 
-fn updateStatus(self: *Self) bool {
+/// Returns `true` if status changed.
+pub fn updateStatus(self: *Self) bool {
     const alive_white = self.board.isPieceAlive(.{ .kind = .king, .side = .white });
     const alive_black = self.board.isPieceAlive(.{ .kind = .king, .side = .black });
 
@@ -215,7 +138,7 @@ fn updateStatus(self: *Self) bool {
     return false;
 }
 
-fn getAvailableMove(self: *const Self, origin: Tile, destination: Tile) ?Move {
+pub fn getAvailableMove(self: *const Self, origin: Tile, destination: Tile) ?Move {
     var available_moves = self.board.getAvailableMoves(origin);
     while (available_moves.next()) |available| {
         if (available.destination.eql(destination)) {
