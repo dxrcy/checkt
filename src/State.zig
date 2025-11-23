@@ -109,8 +109,19 @@ pub fn moveFocus(self: *Self, direction: enum { left, right, up, down }) void {
     }
 }
 
+// TODO: Create new object for gameplay. Which modifies state and sends
+// messages through connection. So state is not coupled with connection or
+// any channel
+
+const Connection = @import("Connection.zig");
+const Channel = @import("channel.zig").Channel;
+
 // TODO: Rename
-pub fn toggleSelection(self: *Self, allow_invalid: bool) void {
+pub fn toggleSelection(
+    self: *Self,
+    allow_invalid: bool,
+    channel: *Channel(Connection.Message),
+) void {
     const side = switch (self.status) {
         .play => |side| side,
         else => unreachable,
@@ -146,7 +157,10 @@ pub fn toggleSelection(self: *Self, allow_invalid: bool) void {
             self.board.addTaken(piece_taken);
         }
 
-        _ = self.board.movePieceOverride(selected, player.focus, false);
+        const updates = self.board.movePieceOverride(selected, player.focus, false);
+        for (updates) |update| {
+            channel.send(.{ .piece = update });
+        }
 
         player.selected = null;
         if (!self.updateStatus()) {
@@ -159,7 +173,13 @@ pub fn toggleSelection(self: *Self, allow_invalid: bool) void {
         return;
     assert(move.destination.eql(player.focus));
 
-    _ = self.board.applyMove(selected, move);
+    const updates = self.board.applyMove(selected, move);
+    for (updates) |update_opt| {
+        if (update_opt) |update| {
+            channel.send(.{ .piece = update });
+        }
+    }
+
     player.selected = null;
 
     if (!self.updateStatus()) {

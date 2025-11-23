@@ -226,7 +226,7 @@ fn input_worker(shared: struct {
             'j' => if (state.status == .play) state.moveFocus(.down),
 
             0x20 => if (state.status == .play) {
-                state.toggleSelection(false);
+                state.toggleSelection(false, shared.send_channel);
             },
             0x1b => if (state.status == .play) {
                 state.player_local.selected = null;
@@ -247,7 +247,7 @@ fn input_worker(shared: struct {
                 else => {},
             },
             'y' => if (state.status == .play) {
-                state.toggleSelection(true);
+                state.toggleSelection(true, shared.send_channel);
             },
 
             'p' => {
@@ -272,15 +272,6 @@ fn input_worker(shared: struct {
                 state.player_local.selected.?.eql(previous_state.player_local.selected.?)))
         {
             shared.send_channel.send(.{ .player = state.player_local });
-        }
-
-        for (state.board.tiles, previous_state.board.tiles, 0..) |current, previous, i| {
-            if (current != previous) {
-                shared.send_channel.send(.{ .piece = .{
-                    .index = i,
-                    .entry = current,
-                } });
-            }
         }
 
         for (std.meta.tags(State.Side)) |side| {
