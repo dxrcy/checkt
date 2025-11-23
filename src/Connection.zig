@@ -147,14 +147,10 @@ fn simulateLatency() void {
 
 pub const Message = union(enum) {
     player: State.Player,
-    piece: PieceUpdate,
+    piece: State.Board.PieceUpdate,
     taken: TakenUpdate,
     status: State.Status,
 
-    const PieceUpdate = struct {
-        tile: State.Tile,
-        piece: ?State.Piece,
-    };
     const TakenUpdate = struct {
         piece: State.Piece,
         count: u32,

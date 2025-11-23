@@ -73,7 +73,7 @@ pub const AvailableMoves = struct {
         // PERF: Could reuse board if we really care
         var board = Board.new();
         @memcpy(&board.tiles, &self.board.tiles);
-        board.applyMove(self.origin, move);
+        _ = board.applyMove(self.origin, move);
 
         return !board.isSideInCheck(piece.side);
     }

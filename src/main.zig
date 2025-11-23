@@ -274,17 +274,12 @@ fn input_worker(shared: struct {
             shared.send_channel.send(.{ .player = state.player_local });
         }
 
-        for (0..Board.SIZE) |rank| {
-            for (0..Board.SIZE) |file| {
-                const tile = Tile{ .rank = @intCast(rank), .file = @intCast(file) };
-                const piece_current = state.board.get(tile);
-                const piece_previous = previous_state.board.get(tile);
-                if (piece_current != piece_previous) {
-                    shared.send_channel.send(.{ .piece = .{
-                        .tile = tile,
-                        .piece = piece_current,
-                    } });
-                }
+        for (state.board.tiles, previous_state.board.tiles, 0..) |current, previous, i| {
+            if (current != previous) {
+                shared.send_channel.send(.{ .piece = .{
+                    .index = i,
+                    .entry = current,
+                } });
             }
         }
 
@@ -353,7 +348,8 @@ fn recv_worker(shared: struct {
             },
 
             .piece => |update| {
-                state.board.set(update.tile, update.piece);
+                assert(update.index < Board.SIZE * Board.SIZE);
+                state.board.tiles[update.index] = update.entry;
                 shared.render_channel.send(.update);
             },
 

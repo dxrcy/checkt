@@ -3,6 +3,8 @@ const Self = @This();
 const std = @import("std");
 const assert = std.debug.assert;
 
+const serde = @import("serde.zig");
+
 const State = @import("State.zig");
 const Side = State.Side;
 
@@ -22,7 +24,7 @@ taken: [Piece.Kind.COUNT * Side.COUNT]u32,
 
 // TODO: Make better
 // TODO: Document
-const TileEntry = packed struct(u7) {
+pub const TileEntry = packed struct(u7) {
     // TODO: Rename
     kind: enum(u1) { empty, full },
     data: packed union {
@@ -39,6 +41,21 @@ const TileEntry = packed struct(u7) {
         .kind = .empty,
         .data = .{ .empty = {} },
     };
+
+    pub fn serialize(self: *const TileEntry, writer: *std.Io.Writer) serde.SerError!void {
+        try serde.serialize(u7, &@bitCast(self.*), writer);
+    }
+
+    pub fn deserialize(
+        reader: *std.Io.Reader,
+    ) serde.DeError!TileEntry {
+        return @bitCast(try serde.deserialize(u7, reader));
+    }
+};
+
+pub const PieceUpdate = struct {
+    index: usize,
+    entry: TileEntry,
 };
 
 pub fn new() Self {
@@ -49,19 +66,19 @@ pub fn new() Self {
 
     for (0..8) |i| {
         const file: TileIndex = @intCast(i);
-        self.set(.{ .rank = 1, .file = file }, .{ .kind = .pawn, .side = .black });
-        self.set(.{ .rank = 6, .file = file }, .{ .kind = .pawn, .side = .white });
+        _ = self.set(.{ .rank = 1, .file = file }, .{ .kind = .pawn, .side = .black });
+        _ = self.set(.{ .rank = 6, .file = file }, .{ .kind = .pawn, .side = .white });
     }
     for ([2]usize{ 0, 7 }, [2]Side{ .black, .white }) |i, side| {
         const rank: TileIndex = @intCast(i);
-        self.set(.{ .rank = rank, .file = 0 }, .{ .kind = .rook, .side = side });
-        self.set(.{ .rank = rank, .file = 1 }, .{ .kind = .knight, .side = side });
-        self.set(.{ .rank = rank, .file = 2 }, .{ .kind = .bishop, .side = side });
-        self.set(.{ .rank = rank, .file = 4 }, .{ .kind = .king, .side = side });
-        self.set(.{ .rank = rank, .file = 3 }, .{ .kind = .queen, .side = side });
-        self.set(.{ .rank = rank, .file = 5 }, .{ .kind = .bishop, .side = side });
-        self.set(.{ .rank = rank, .file = 6 }, .{ .kind = .knight, .side = side });
-        self.set(.{ .rank = rank, .file = 7 }, .{ .kind = .rook, .side = side });
+        _ = self.set(.{ .rank = rank, .file = 0 }, .{ .kind = .rook, .side = side });
+        _ = self.set(.{ .rank = rank, .file = 1 }, .{ .kind = .knight, .side = side });
+        _ = self.set(.{ .rank = rank, .file = 2 }, .{ .kind = .bishop, .side = side });
+        _ = self.set(.{ .rank = rank, .file = 4 }, .{ .kind = .king, .side = side });
+        _ = self.set(.{ .rank = rank, .file = 3 }, .{ .kind = .queen, .side = side });
+        _ = self.set(.{ .rank = rank, .file = 5 }, .{ .kind = .bishop, .side = side });
+        _ = self.set(.{ .rank = rank, .file = 6 }, .{ .kind = .knight, .side = side });
+        _ = self.set(.{ .rank = rank, .file = 7 }, .{ .kind = .rook, .side = side });
     }
 
     for (0..SIZE * SIZE) |i| {
@@ -91,12 +108,13 @@ pub fn get(self: *const Self, tile: Tile) ?Piece {
     }
 }
 
-pub fn set(self: *Self, tile: Tile, piece: ?Piece) void {
-    self.setInner(tile, piece, false);
+pub fn set(self: *Self, tile: Tile, piece: ?Piece) PieceUpdate {
+    return self.setInner(tile, piece, false);
 }
 
 // TODO: Make better
-pub fn setInner(self: *Self, tile: Tile, piece: ?Piece, special: bool) void {
+// PERF: Return `null` if no change was made
+pub fn setInner(self: *Self, tile: Tile, piece: ?Piece, special: bool) PieceUpdate {
     assert(tile.rank < SIZE);
     assert(tile.file < SIZE);
 
@@ -112,7 +130,10 @@ pub fn setInner(self: *Self, tile: Tile, piece: ?Piece, special: bool) void {
     else
         TileEntry.empty;
 
-    self.tiles[tile.rank * SIZE + tile.file] = entry;
+    const index = tile.rank * SIZE + tile.file;
+    self.tiles[index] = entry;
+
+    return .{ .index = index, .entry = entry };
 }
 
 pub fn hasChanged(self: *const Self, tile: Tile) bool {
@@ -209,24 +230,57 @@ pub fn isSideInCheck(self: *const Self, side: Side) bool {
     return self.isSideAttackedAt(side, self.getKing(side));
 }
 
-pub fn applyMove(self: *Self, origin: Tile, move: Move) void {
+// TODO: Create type for return array
+pub fn applyMove(self: *Self, origin: Tile, move: Move) [4]?PieceUpdate {
     if (move.take) |take| {
         const piece_taken = self.get(take) orelse unreachable;
         self.addTaken(piece_taken);
-        self.set(take, null);
+        // TODO: Is this right
+        // self.set(take, null);
     }
+
+    var updates = [1]?PieceUpdate{null} ** 4;
 
     if (move.move_alt) |move_alt| {
-        self.movePieceToEmpty(move_alt.origin, move_alt.destination, false);
+        const updates_new = self.movePieceOverride(
+            move_alt.origin,
+            move_alt.destination,
+            false,
+        );
+        updates[2] = updates_new[0];
+        updates[3] = updates_new[1];
     }
 
-    self.movePieceToEmpty(origin, move.destination, move.mark_special);
+    {
+        const updates_new = self.movePieceOverride(
+            origin,
+            move.destination,
+            move.mark_special,
+        );
+        updates[0] = updates_new[0];
+        updates[1] = updates_new[1];
+    }
+
+    return updates;
 }
 
-fn movePieceToEmpty(self: *Self, origin: Tile, destination: Tile, special: bool) void {
+/// Clobbers any existing piece in `destination`.
+// TODO: Rename
+pub fn movePieceOverride(
+    self: *Self,
+    origin: Tile,
+    destination: Tile,
+    special: bool,
+) [2]PieceUpdate {
     const piece = self.get(origin) orelse unreachable;
-    self.setInner(destination, piece, special);
-    self.set(origin, null);
+
+    const update_destination = self.setInner(destination, piece, special);
+    const update_origin = self.set(origin, null);
+
+    return [2]PieceUpdate{
+        update_destination,
+        update_origin,
+    };
 }
 
 pub const Tile = struct {

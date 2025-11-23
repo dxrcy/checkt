@@ -140,12 +140,14 @@ pub fn toggleSelection(self: *Self, allow_invalid: bool) void {
     const piece = self.board.get(selected);
     assert(piece.?.side == side);
 
+    // DEBUG
     if (allow_invalid) {
         if (self.board.get(player.focus)) |piece_taken| {
             self.board.addTaken(piece_taken);
         }
-        self.board.set(player.focus, piece);
-        self.board.set(selected, null);
+
+        _ = self.board.movePieceOverride(selected, player.focus, false);
+
         player.selected = null;
         if (!self.updateStatus()) {
             self.status = .{ .play = side.flip() };
@@ -157,7 +159,7 @@ pub fn toggleSelection(self: *Self, allow_invalid: bool) void {
         return;
     assert(move.destination.eql(player.focus));
 
-    self.board.applyMove(selected, move);
+    _ = self.board.applyMove(selected, move);
     player.selected = null;
 
     if (!self.updateStatus()) {
