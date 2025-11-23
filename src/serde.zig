@@ -39,9 +39,8 @@ pub fn serialize(comptime T: type, value: *const T, writer: *Io.Writer) SerError
 
     switch (@typeInfo(T)) {
         .int => {
-            const fixed_type = if (T == usize) u64 else u32;
             try writer.writeInt(
-                resizeIntToBytes(fixed_type),
+                resizeIntToBytes(fixedIntSize(T)),
                 @intCast(value.*),
                 ENDIAN,
             );
@@ -115,9 +114,8 @@ pub fn deserialize(comptime T: type, reader: *Io.Reader) DeError!T {
 
     switch (@typeInfo(T)) {
         .int => {
-            const fixed_type = if (T == usize) u64 else u32;
-            const padded: fixed_type = @intCast(try reader.takeInt(
-                resizeIntToBytes(fixed_type),
+            const padded: fixedIntSize(T) = @intCast(try reader.takeInt(
+                resizeIntToBytes(fixedIntSize(T)),
                 ENDIAN,
             ));
             return math.cast(T, padded) orelse {
@@ -173,6 +171,15 @@ pub fn deserialize(comptime T: type, reader: *Io.Reader) DeError!T {
     }
 }
 
+fn fixedIntSize(comptime T: type) type {
+    return switch (T) {
+        usize => u64,
+        isize => i64,
+        else => T,
+    };
+}
+
+// TODO: Rename
 fn resizeIntToBytes(comptime T: type) type {
     const int = @typeInfo(T).int;
     const bits = 8 * (math.divCeil(u16, int.bits, 8) catch unreachable);
@@ -182,6 +189,7 @@ fn resizeIntToBytes(comptime T: type) type {
     } });
 }
 
+// TODO: Rename
 fn getIntOfSize(comptime T: type) type {
     return @Type(builtin.Type{ .int = .{
         .bits = @bitSizeOf(T),
