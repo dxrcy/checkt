@@ -84,6 +84,26 @@ pub fn serialize(comptime T: type, value: *const T, writer: *Io.Writer) SerError
 
 pub fn deserialize(comptime T: type, reader: *Io.Reader) DeError!T {
     switch (@typeInfo(T)) {
+        .@"struct", .@"union", .@"enum" => {
+            if (@hasDecl(T, "deserialize")) {
+                const func = switch (@typeInfo(@TypeOf(T.deserialize))) {
+                    .@"fn" => |func| func,
+                    else => @compileError("custom `deserialize` declaration for type `" ++ @typeName(T) ++ "` in not a function"),
+                };
+                if (func.params[0].type != *Io.Reader or
+                    func.return_type != DeError!T)
+                {
+                    @compileError("custom `deserialize` function for type `" ++ @typeName(T) ++ "` does not have correct signature");
+                }
+
+                return try T.deserialize(reader);
+            }
+        },
+
+        else => {},
+    }
+
+    switch (@typeInfo(T)) {
         .int => {
             comptime std.debug.assert(!std.mem.eql(u8, @typeName(T), "usize"));
             const padded = try reader.takeInt(resizeIntToBytes(T), ENDIAN);
