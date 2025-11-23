@@ -135,10 +135,12 @@ pub fn recv(self: *Self) serde.DeError!Message {
 }
 
 fn simulateLatency() void {
-    const MINIMUM_MS = 50;
-    const EXTRA_MS = 500;
+    const MINIMUM_MS = 0;
+    const EXTRA_MS = 400;
 
-    const random: u64 = @intCast(std.time.timestamp());
+    var random: u64 = undefined;
+    std.posix.getrandom(std.mem.asBytes(&random)) catch unreachable;
+
     const time_ms = @mod(random, EXTRA_MS) + MINIMUM_MS;
     std.Thread.sleep(time_ms * std.time.ns_per_ms);
 }
