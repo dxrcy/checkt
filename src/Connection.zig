@@ -118,6 +118,8 @@ pub fn send(self: *Self, message: Message) serde.SerError!void {
         return;
     }
 
+    simulateLatency();
+
     try serde.serialize(Message, message, &self.writer.interface);
     try self.writer.interface.flush();
 }
@@ -127,7 +129,18 @@ pub fn recv(self: *Self) serde.DeError!Message {
         waitForever();
     }
 
+    simulateLatency();
+
     return try serde.deserialize(Message, self.reader.interface());
+}
+
+fn simulateLatency() void {
+    const MINIMUM_MS = 50;
+    const EXTRA_MS = 500;
+
+    const random: u64 = @intCast(std.time.timestamp());
+    const time_ms = @mod(random, EXTRA_MS) + MINIMUM_MS;
+    std.Thread.sleep(time_ms * std.time.ns_per_ms);
 }
 
 pub const Message = union(enum) {
