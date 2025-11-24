@@ -136,55 +136,62 @@ pub fn render(self: *Self, state: *const State) void {
     }
 
     // Taken piece icons
-    if (self.small) {
-        // TODO:
-    } else {
-        for (std.meta.tags(Side), 0..) |side, y| {
-            var x: usize = 0;
+    for (std.meta.tags(Side), 0..) |side, y| {
+        var x: usize = 0;
 
-            for (std.meta.tags(Piece.Kind)) |kind| {
-                const piece = Piece{ .kind = kind, .side = side };
+        for (std.meta.tags(Piece.Kind)) |kind| {
+            const piece = Piece{ .kind = kind, .side = side };
 
-                const count = state.board.getTaken(piece);
-                if (count == 0) {
-                    continue;
-                }
-
-                const tile = Tile{
-                    .rank = @intCast(Board.SIZE + y),
-                    .file = @intCast(x % Board.SIZE),
-                };
-
-                self.renderPiece(piece, tile, .{});
-
-                if (count > 1) {
-                    self.renderDecimalInt(
-                        count,
-                        tile.rank * tile_size.HEIGHT + 1,
-                        tile.file * tile_size.WIDTH + tile_size.PADDING_LEFT + Piece.WIDTH + 1,
-                        .{
-                            .fg = colors.HIGHLIGHT,
-                            .bold = true,
-                        },
-                    );
-                }
-
-                x += 1;
+            const count = state.board.getTaken(piece);
+            if (count == 0) {
+                continue;
             }
 
-            // Placeholder
-            if (x == 0) {
-                const piece = Piece{ .kind = .pawn, .side = side };
-                const tile = Tile{
-                    .rank = @intCast(Board.SIZE + y),
-                    .file = @intCast(x % Board.SIZE),
-                };
+            const tile = Tile{
+                .rank = @intCast(Board.SIZE + y),
+                .file = @intCast(x % Board.SIZE),
+            };
 
-                self.renderPiece(piece, tile, .{
-                    .fg = colors.PLACEHOLDER,
-                    .bold = false,
-                });
+            self.renderPiece(piece, tile, .{});
+
+            if (count > 1) {
+                const position: struct { x: usize, y: usize } = if (self.small)
+                    .{
+                        .x = tile.file * tile_size.WIDTH_SMALL + tile_size.PADDING_LEFT_SMALL + 2,
+                        .y = tile.rank * tile_size.HEIGHT_SMALL + 1,
+                    }
+                else
+                    .{
+                        .x = tile.file * tile_size.WIDTH + tile_size.PADDING_LEFT + Piece.WIDTH + 1,
+                        .y = tile.rank * tile_size.HEIGHT + 1,
+                    };
+
+                self.renderDecimalInt(
+                    count,
+                    position.y,
+                    position.x,
+                    .{
+                        .fg = colors.HIGHLIGHT,
+                        .bold = true,
+                    },
+                );
             }
+
+            x += 1;
+        }
+
+        // Placeholder
+        if (x == 0) {
+            const piece = Piece{ .kind = .pawn, .side = side };
+            const tile = Tile{
+                .rank = @intCast(Board.SIZE + y),
+                .file = @intCast(x % Board.SIZE),
+            };
+
+            self.renderPiece(piece, tile, .{
+                .fg = colors.PLACEHOLDER,
+                .bold = false,
+            });
         }
     }
 
