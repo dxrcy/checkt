@@ -298,7 +298,13 @@ fn recv_worker(shared: struct {
             },
 
             .position => |position| {
-                // TODO: Add very basic validation (in-bounds)
+                if (!position.focus.isInBounds() or
+                    (position.selected != null and !position.selected.?.isInBounds()))
+                {
+                    // TODO: Handle
+                    return error.IllegalMessage;
+                }
+
                 state.player_remote = position;
                 shared.render_channel.send(.update);
             },
