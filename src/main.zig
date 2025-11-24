@@ -11,11 +11,8 @@ const handlers = @import("handlers.zig");
 const State = @import("State.zig");
 const Tile = State.Tile;
 
-// TODO: Move to `concurrent.zig` ?
-const channel = @import("channel.zig");
-const Channel = channel.Channel;
-
 const concurrent = @import("concurrent.zig");
+const Channel = concurrent.Channel;
 const MutexPtr = concurrent.MutexPtr;
 const Worker = concurrent.Worker;
 

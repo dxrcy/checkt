@@ -1,10 +1,10 @@
 const std = @import("std");
 const posix = std.posix;
 
-const Ui = @import("Ui.zig");
-const Channel = @import("channel.zig").Channel;
-const handlers = @import("handlers.zig");
 const RenderMessage = @import("root").RenderMessage;
+const Channel = @import("concurrent.zig").Channel;
+const handlers = @import("handlers.zig");
+const Ui = @import("Ui.zig");
 
 pub const globals = struct {
     pub var UI: ?*Ui = null;

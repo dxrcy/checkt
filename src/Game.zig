@@ -7,7 +7,7 @@ const State = @import("State.zig");
 const Move = @import("moves.zig").Move;
 
 const Connection = @import("Connection.zig");
-const Channel = @import("channel.zig").Channel;
+const Channel = @import("concurrent.zig").Channel;
 
 // TODO: Rename
 pub fn toggleSelection(
