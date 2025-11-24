@@ -353,21 +353,7 @@ fn input_worker(shared: struct {
                 previous_state.player_local.selected != null and
                 state.player_local.selected.?.eql(previous_state.player_local.selected.?)))
         {
-            shared.send_channel.send(.{ .player = state.player_local });
-        }
-
-        for (std.meta.tags(State.Side)) |side| {
-            for (std.meta.tags(State.Piece.Kind)) |kind| {
-                const piece = State.Piece{ .kind = kind, .side = side };
-                const current = state.board.getTaken(piece);
-                const previous = previous_state.board.getTaken(piece);
-                if (current != previous) {
-                    shared.send_channel.send(.{ .taken = .{
-                        .piece = piece,
-                        .count = current,
-                    } });
-                }
-            }
+            shared.send_channel.send(.{ .position = state.player_local });
         }
 
         if (!state.status.eql(previous_state.status)) {
@@ -415,24 +401,26 @@ fn recv_worker(shared: struct {
         defer shared.state.unlock();
 
         switch (message) {
-            .player => |player| {
-                state.player_remote = player;
-                shared.render_channel.send(.update);
-            },
-
-            .piece => |update| {
-                assert(update.index < Board.SIZE * Board.SIZE);
-                state.board.tiles[update.index] = update.entry;
-                shared.render_channel.send(.update);
-            },
-
-            .taken => |update| {
-                state.board.setTaken(update.piece, update.count);
-                shared.render_channel.send(.update);
-            },
-
             .status => |status| {
                 state.status = status;
+                shared.render_channel.send(.update);
+            },
+
+            .position => |position| {
+                // TODO: Add very basic validation (in-bounds)
+                state.player_remote = position;
+                shared.render_channel.send(.update);
+            },
+
+            .commit_move => |commit_move| {
+                // TODO: Add proper validation!!!
+                // - status
+                // - valid move
+                // - anything else?
+                // The same logic from `Game.toggleSelection` can be used; this
+                // can be extracted to be reused.
+                _ = state.board.applyMove(commit_move.origin, commit_move.move);
+                // TODO: Change status
                 shared.render_channel.send(.update);
             },
         }

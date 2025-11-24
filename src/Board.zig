@@ -230,6 +230,7 @@ pub fn isSideInCheck(self: *const Self, side: Side) bool {
     return self.isSideAttackedAt(side, self.getKing(side));
 }
 
+/// Does **not** validate move.
 // TODO: Create type for return array
 pub fn applyMove(self: *Self, origin: Tile, move: Move) [4]?PieceUpdate {
     if (move.take) |take| {

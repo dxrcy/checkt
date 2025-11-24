@@ -3,7 +3,6 @@ const Self = @This();
 const std = @import("std");
 const net = std.net;
 
-const State = @import("State.zig");
 const serde = @import("serde.zig");
 
 // TODO: Use union for fields
@@ -145,15 +144,32 @@ fn simulateLatency() void {
     std.Thread.sleep(time_ms * std.time.ns_per_ms);
 }
 
+// TODO: Move elsewhere!
 pub const Message = union(enum) {
-    player: State.Player,
-    piece: State.Board.PieceUpdate,
-    taken: TakenUpdate,
+    const State = @import("State.zig");
+    const Tile = State.Tile;
+    const Player = State.Player;
+
+    const Move = @import("moves.zig").Move;
+
+    // OLD
+    // TODO: Remove
     status: State.Status,
+
+    // NEW
+    // TODO: Rename
+    position: Player,
+    commit_move: CommitMove,
 
     const TakenUpdate = struct {
         piece: State.Piece,
         count: u32,
+    };
+
+    const CommitMove = struct {
+        origin: Tile,
+        move: Move,
+        // TODO: Add more information, to ensure everything is synced and valid
     };
 };
 

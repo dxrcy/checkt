@@ -4,6 +4,7 @@ const std = @import("std");
 const assert = std.debug.assert;
 
 const State = @import("State.zig");
+const Move = @import("moves.zig").Move;
 
 const Connection = @import("Connection.zig");
 const Channel = @import("channel.zig").Channel;
@@ -49,10 +50,14 @@ pub fn toggleSelection(
             state.board.addTaken(piece_taken);
         }
 
-        const updates = state.board.movePieceOverride(selected, player.focus, false);
-        for (updates) |update| {
-            channel.send(.{ .piece = update });
-        }
+        const move = Move{
+            .destination = player.focus,
+            .mark_special = false,
+            .move_alt = null,
+            // TODO: Take piece if piece exists in destination
+            .take = null,
+        };
+        applyAndCommitMove(state, selected, move, channel);
 
         player.selected = null;
         if (!state.updateStatus()) {
@@ -65,16 +70,27 @@ pub fn toggleSelection(
         return;
     assert(move.destination.eql(player.focus));
 
-    const updates = state.board.applyMove(selected, move);
-    for (updates) |update_opt| {
-        if (update_opt) |update| {
-            channel.send(.{ .piece = update });
-        }
-    }
+    applyAndCommitMove(state, selected, move, channel);
 
     player.selected = null;
 
     if (!state.updateStatus()) {
         state.status = .{ .play = side.flip() };
     }
+}
+
+/// Does **not** validate move.
+fn applyAndCommitMove(
+    state: *State,
+    origin: State.Tile,
+    move: Move,
+    channel: *Channel(Connection.Message),
+) void {
+    // TODO: Change method to return void???
+    _ = state.board.applyMove(origin, move);
+
+    channel.send(.{ .commit_move = .{
+        .origin = origin,
+        .move = move,
+    } });
 }
