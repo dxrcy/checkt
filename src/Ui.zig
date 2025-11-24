@@ -192,9 +192,11 @@ pub fn render(self: *Self, state: *const State) void {
             });
         },
 
-        .play => {
-            const side: Side = if (state.role == .host) .white else .black;
+        .play => |active_side| {
             const player = state.player_local;
+            const side: Side = if (state.role == null)
+                active_side
+            else if (state.role == .host) .white else .black;
 
             if (state.board.isSideInCheck(side)) {
                 const king = state.board.getKing(side);
