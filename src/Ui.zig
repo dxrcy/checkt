@@ -207,7 +207,7 @@ pub fn render(self: *Self, state: *const State) void {
                     .kind = .king,
                     .side = side,
                 }, king, .{
-                    .fg = getSideColor(side),
+                    .fg = getPieceColor(side),
                 });
             }
 
@@ -248,8 +248,8 @@ pub fn render(self: *Self, state: *const State) void {
                     }
                 }
 
-                    .bg = getSideColor(side),
                 self.renderRectSolid(self.getTileRect(selected), .{
+                    .bg = getPieceColor(side),
                 });
 
                 if (state.board.get(selected)) |piece| {
@@ -282,7 +282,7 @@ pub fn render(self: *Self, state: *const State) void {
             // Focus, local
             self.renderRectHighlight(self.getTileRect(state.player_local.focus), .{
                 .fg = if (state.isLocalSideActive())
-                    getSideColor(side)
+                    getPieceColor(side)
                 else
                     colors.UNAVAILABLE,
                 .bold = true,
@@ -411,7 +411,7 @@ fn renderPiece(self: *Self, piece: Piece, tile: Tile, options: Cell.Options) voi
                 tile.file * tile_size.WIDTH + x + tile_size.PADDING_LEFT,
                 (Cell.Options{
                     .char = string[y * Piece.WIDTH + x],
-                    .fg = getSideColor(piece.side),
+                    .fg = getPieceColor(piece.side),
                     .bold = true,
                 }).join(options),
             );
@@ -419,7 +419,7 @@ fn renderPiece(self: *Self, piece: Piece, tile: Tile, options: Cell.Options) voi
     }
 }
 
-fn getSideColor(side: State.Side) Color {
+fn getPieceColor(side: State.Side) Color {
     return if (side == .white) colors.PIECE_WHITE else colors.PIECE_BLACK;
 }
 
