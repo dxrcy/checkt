@@ -34,7 +34,7 @@ pub fn main() !u8 {
     try connection.init();
     defer connection.deinit();
 
-    var ui = Ui.new(args.ascii);
+    var ui = Ui.new(args.ascii, args.small);
     try ui.enter();
     // Restore terminal, if anything goes wrong
     errdefer ui.exit() catch unreachable;

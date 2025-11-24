@@ -5,6 +5,7 @@ const std = @import("std");
 const State = @import("State.zig");
 
 ascii: bool,
+small: bool,
 // TODO: Use new union type with port if joining
 role: ?State.Role,
 port: ?u16,
@@ -14,12 +15,15 @@ pub fn parse() ?Self {
     _ = args.next();
 
     var ascii = false;
+    var small = false;
     var role: ?State.Role = null;
     var port: ?u16 = null;
 
     while (args.next()) |arg| {
         if (std.mem.eql(u8, arg, "--ascii")) {
             ascii = true;
+        } else if (std.mem.eql(u8, arg, "--small")) {
+            small = true;
         } else if (std.mem.eql(u8, arg, "host")) {
             if (role != null) {
                 std.log.err("invalid argument", .{});
@@ -49,6 +53,7 @@ pub fn parse() ?Self {
 
     return Self{
         .ascii = ascii,
+        .small = small,
         .role = role,
         .port = port,
     };

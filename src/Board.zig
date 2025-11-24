@@ -338,6 +338,19 @@ pub const Piece = packed struct {
         };
     }
 
+    pub fn char(self: Piece) u8 {
+        const chars: *const [2]u8 = switch (self.kind) {
+            .pawn => "pP",
+            .rook => "rR",
+            .knight => "nN",
+            .bishop => "bB",
+            .king => "kK",
+            .queen => "qQ",
+        };
+        const index: usize = if (self.side == .black) 0 else 1;
+        return chars[index];
+    }
+
     pub fn eql(lhs: Piece, rhs: Piece) bool {
         return lhs.kind == rhs.kind and lhs.side == rhs.side;
     }

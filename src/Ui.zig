@@ -21,12 +21,20 @@ const text = @import("text.zig");
 terminal: Terminal,
 frames: [2]Frame,
 current_frame: u1,
+
 ascii: bool,
+small: bool,
+
 show_debug: bool,
 
 pub const tile_size = struct {
     pub const WIDTH: usize = Piece.WIDTH + PADDING_LEFT + PADDING_RIGHT;
     pub const HEIGHT: usize = Piece.HEIGHT + PADDING_TOP + PADDING_BOTTOM;
+
+    const WIDTH_SMALL: usize = 6;
+    const HEIGHT_SMALL: usize = 3;
+    const PADDING_LEFT_SMALL: usize = 2;
+    const PADDING_TOP_SMALL: usize = 1;
 
     const PADDING_LEFT: usize = 3;
     const PADDING_RIGHT: usize = 3;
@@ -47,12 +55,13 @@ const Edge = enum {
 
 const Rect = struct { y: usize, x: usize, h: usize, w: usize };
 
-pub fn new(ascii: bool) Self {
+pub fn new(ascii: bool, small: bool) Self {
     return Self{
         .terminal = Terminal.new(),
         .frames = [1]Frame{Frame.new()} ** 2,
         .current_frame = 0,
         .ascii = ascii,
+        .small = small,
         .show_debug = false,
     };
 }
@@ -127,69 +136,77 @@ pub fn render(self: *Self, state: *const State) void {
     }
 
     // Taken piece icons
-    for (std.meta.tags(Side), 0..) |side, y| {
-        var x: usize = 0;
+    if (self.small) {
+        // TODO:
+    } else {
+        for (std.meta.tags(Side), 0..) |side, y| {
+            var x: usize = 0;
 
-        for (std.meta.tags(Piece.Kind)) |kind| {
-            const piece = Piece{ .kind = kind, .side = side };
+            for (std.meta.tags(Piece.Kind)) |kind| {
+                const piece = Piece{ .kind = kind, .side = side };
 
-            const count = state.board.getTaken(piece);
-            if (count == 0) {
-                continue;
+                const count = state.board.getTaken(piece);
+                if (count == 0) {
+                    continue;
+                }
+
+                const tile = Tile{
+                    .rank = @intCast(Board.SIZE + y),
+                    .file = @intCast(x % Board.SIZE),
+                };
+
+                self.renderPiece(piece, tile, .{});
+
+                if (count > 1) {
+                    self.renderDecimalInt(
+                        count,
+                        tile.rank * tile_size.HEIGHT + 1,
+                        tile.file * tile_size.WIDTH + tile_size.PADDING_LEFT + Piece.WIDTH + 1,
+                        .{
+                            .fg = colors.HIGHLIGHT,
+                            .bold = true,
+                        },
+                    );
+                }
+
+                x += 1;
             }
 
-            const tile = Tile{
-                .rank = @intCast(Board.SIZE + y),
-                .file = @intCast(x % Board.SIZE),
-            };
+            // Placeholder
+            if (x == 0) {
+                const piece = Piece{ .kind = .pawn, .side = side };
+                const tile = Tile{
+                    .rank = @intCast(Board.SIZE + y),
+                    .file = @intCast(x % Board.SIZE),
+                };
 
-            self.renderPiece(piece, tile, .{});
-
-            if (count > 1) {
-                self.renderDecimalInt(
-                    count,
-                    tile.rank * tile_size.HEIGHT + 1,
-                    tile.file * tile_size.WIDTH + tile_size.PADDING_LEFT + Piece.WIDTH + 1,
-                    .{
-                        .fg = colors.HIGHLIGHT,
-                        .bold = true,
-                    },
-                );
+                self.renderPiece(piece, tile, .{
+                    .fg = colors.PLACEHOLDER,
+                    .bold = false,
+                });
             }
-
-            x += 1;
-        }
-
-        // Placeholder
-        if (x == 0) {
-            const piece = Piece{ .kind = .pawn, .side = side };
-            const tile = Tile{
-                .rank = @intCast(Board.SIZE + y),
-                .file = @intCast(x % Board.SIZE),
-            };
-
-            self.renderPiece(piece, tile, .{
-                .fg = colors.PLACEHOLDER,
-                .bold = false,
-            });
         }
     }
 
     switch (state.status) {
         .win => |side| {
-            self.renderTextLarge(&[_][]const u8{
-                "game",
-                "over",
-            }, 14, 20);
+            if (self.small) {
+                // TODO:
+            } else {
+                self.renderTextLarge(&[_][]const u8{
+                    "game",
+                    "over",
+                }, 14, 20);
 
-            const string = if (side == .white)
-                "Blue wins"
-            else
-                "Red wins";
-            const origin_x = (Board.SIZE * tile_size.WIDTH - string.len) / 2;
-            self.renderTextLineNormal(string, 26, origin_x, .{
-                .bold = true,
-            });
+                const string = if (side == .white)
+                    "Blue wins"
+                else
+                    "Red wins";
+                const origin_x = (Board.SIZE * tile_size.WIDTH - string.len) / 2;
+                self.renderTextLineNormal(string, 26, origin_x, .{
+                    .bold = true,
+                });
+            }
         },
 
         .play => |active_side| {
@@ -402,6 +419,19 @@ fn renderDecimalInt(
 fn renderPiece(self: *Self, piece: Piece, tile: Tile, options: Cell.Options) void {
     var frame = self.getForeFrame();
 
+    if (self.small) {
+        frame.set(
+            tile.rank * tile_size.HEIGHT_SMALL + tile_size.PADDING_TOP_SMALL,
+            tile.file * tile_size.WIDTH_SMALL + tile_size.PADDING_LEFT_SMALL,
+            (Cell.Options{
+                .char = piece.char(),
+                .fg = getPieceColor(piece.side),
+                .bold = true,
+            }).join(options),
+        );
+        return;
+    }
+
     const string = piece.string();
 
     for (0..Piece.HEIGHT) |y| {
@@ -427,6 +457,15 @@ fn getPieceColor(side: State.Side) Color {
 }
 
 fn getTileRect(self: *const Self, tile: Tile) Rect {
+    if (self.small) {
+        return Rect{
+            .y = tile.rank * tile_size.HEIGHT_SMALL,
+            .x = tile.file * tile_size.WIDTH_SMALL,
+            .h = tile_size.HEIGHT_SMALL,
+            .w = tile_size.WIDTH_SMALL,
+        };
+    }
+
     return Rect{
         .y = tile.rank * tile_size.HEIGHT,
         .x = tile.file * tile_size.WIDTH,
