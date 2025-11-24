@@ -291,6 +291,7 @@ fn recv_worker(shared: struct {
         defer shared.state.unlock();
 
         switch (message) {
+            // TODO: Remove
             .status => |status| {
                 state.status = status;
                 shared.render_channel.send(.update);
@@ -303,14 +304,19 @@ fn recv_worker(shared: struct {
             },
 
             .commit_move => |commit_move| {
-                // TODO: Add proper validation!!!
-                // - status
-                // - valid move
-                // - anything else?
-                // The same logic from `Game.toggleSelection` can be used; this
-                // can be extracted to be reused.
+                if (!Game.isMoveValid(
+                    state,
+                    state.getLocalSide().flip(),
+                    commit_move.origin,
+                    commit_move.move,
+                )) {
+                    // TODO: Handle
+                    return error.IllegalMessage;
+                }
+
                 _ = state.board.applyMove(commit_move.origin, commit_move.move);
                 // TODO: Change status
+
                 shared.render_channel.send(.update);
             },
         }

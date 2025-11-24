@@ -16,7 +16,24 @@ pub const Move = struct {
     const MoveAlt = struct {
         origin: Tile,
         destination: Tile,
+
+        pub fn eql(lhs: MoveAlt, rhs: MoveAlt) bool {
+            return lhs.origin.eql(rhs.origin) and
+                lhs.destination.eql(rhs.destination);
+        }
     };
+
+    pub fn eql(lhs: Move, rhs: Move) bool {
+        return lhs.destination.eql(rhs.destination) and
+            optionalEql(lhs.take, rhs.take) and
+            optionalEql(lhs.move_alt, rhs.move_alt) and
+            lhs.mark_special == rhs.mark_special;
+    }
+
+    fn optionalEql(lhs: anytype, rhs: anytype) bool {
+        return (lhs == null and rhs == null) or
+            (lhs != null and rhs != null and lhs.?.eql(rhs.?));
+    }
 };
 
 pub const AvailableMoves = struct {

@@ -3,11 +3,37 @@ const Self = @This();
 const std = @import("std");
 const assert = std.debug.assert;
 
-const State = @import("State.zig");
-const Move = @import("moves.zig").Move;
-
 const Connection = @import("Connection.zig");
 const Channel = @import("concurrent.zig").Channel;
+const Move = @import("moves.zig").Move;
+
+const State = @import("State.zig");
+const Side = State.Side;
+const Tile = State.Tile;
+
+pub fn isMoveValid(
+    state: *const State,
+    side: Side,
+    origin: Tile,
+    move: Move,
+) bool {
+    const active_side = switch (state.status) {
+        .play => |active_side| active_side,
+        else => return false,
+    };
+    if (side != active_side) {
+        return false;
+    }
+
+    const expected_move = state.getAvailableMove(origin, move.destination) orelse {
+        return false;
+    };
+    if (!move.eql(expected_move)) {
+        return false;
+    }
+
+    return true;
+}
 
 // TODO: Rename
 pub fn toggleSelection(

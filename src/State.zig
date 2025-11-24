@@ -79,6 +79,10 @@ pub fn resetGame(self: *Self) void {
     };
 }
 
+pub fn getLocalSide(self: *const Self) Side {
+    return if (self.role == .host) .white else .black;
+}
+
 pub fn moveFocus(self: *Self, direction: enum { left, right, up, down }) void {
     assert(self.status == .play);
 
