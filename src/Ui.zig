@@ -279,7 +279,7 @@ pub fn render(self: *Self, state: *const State) void {
 
             // Focus, local
             self.renderRectHighlight(getTileRect(state.player_local.focus), .{
-                .fg = if (state.isSelfActive())
+                .fg = if (state.isLocalSideActive())
                     getSideColor(side)
                 else
                     colors.UNAVAILABLE,

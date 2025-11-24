@@ -83,17 +83,14 @@ pub fn getLocalSide(self: *const Self) Side {
     return if (self.role == .host) .white else .black;
 }
 
-// TODO: Remove ?
-pub fn isSelfActive(self: *const Self) bool {
-    // TODO: Use `getLocalSide`
-    const side = switch (self.status) {
-        .play => |side| side,
+pub fn isLocalSideActive(self: *const Self) bool {
+    switch (self.status) {
+        .play => |active_side| {
+            return self.role == null or
+                active_side == self.getLocalSide();
+        },
         else => return false,
-    };
-    if (self.role == null) {
-        return true;
     }
-    return (side == .white) == (self.role == .host);
 }
 
 pub fn getAvailableMove(self: *const Self, origin: Tile, destination: Tile) ?Move {

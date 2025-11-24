@@ -96,7 +96,7 @@ pub fn toggleSelection(
         else => unreachable,
     };
 
-    if (!state.isSelfActive()) {
+    if (!state.isLocalSideActive()) {
         return;
     }
 
