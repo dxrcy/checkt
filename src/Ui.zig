@@ -192,20 +192,20 @@ pub fn render(self: *Self, state: *const State) void {
             });
         },
 
-        .play => |side| {
-            const side_local: Side = if (state.role == .host) .white else .black;
+        .play => {
+            const side: Side = if (state.role == .host) .white else .black;
             const player = state.player_local;
 
-            if (state.board.isSideInCheck(side_local)) {
-                const king = state.board.getKing(side_local);
+            if (state.board.isSideInCheck(side)) {
+                const king = state.board.getKing(side);
                 self.renderRectSolid(getTileRect(king), .{
                     .bg = colors.UNAVAILABLE,
                 });
                 self.renderPiece(.{
                     .kind = .king,
-                    .side = side_local,
+                    .side = side,
                 }, king, .{
-                    .fg = getSideColor(side_local),
+                    .fg = getSideColor(side),
                 });
             }
 
