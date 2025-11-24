@@ -1,4 +1,5 @@
 const std = @import("std");
+const log = std.log;
 const posix = std.posix;
 
 const RenderMessage = @import("root").RenderMessage;
@@ -11,6 +12,7 @@ pub const globals = struct {
     pub var RENDER_CHANNEL: ?*Channel(RenderMessage) = null;
 };
 
+// TODO: Set for main thread
 pub threadlocal var THREAD_NAME: ?[]const u8 = null;
 
 pub fn exit(comptime fmt: []const u8, args: anytype) noreturn {
@@ -18,7 +20,7 @@ pub fn exit(comptime fmt: []const u8, args: anytype) noreturn {
         ui.exit() catch {};
     }
 
-    std.log.info("exiting: " ++ fmt, args);
+    log.info("exiting: " ++ fmt, args);
     std.process.exit(0);
 }
 

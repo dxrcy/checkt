@@ -1,5 +1,6 @@
 const std = @import("std");
 const assert = std.debug.assert;
+const log = std.log;
 const time = std.time;
 const Instant = time.Instant;
 
@@ -10,6 +11,7 @@ const Game = @import("Game.zig");
 const Ui = @import("Ui.zig");
 // TODO: Rename
 const handlers = @import("handlers.zig");
+const logging = @import("logging.zig");
 
 const State = @import("State.zig");
 const Tile = State.Tile;
@@ -21,7 +23,15 @@ const Worker = concurrent.Worker;
 
 pub const panic = std.debug.FullPanic(handlers.panic);
 
+pub const std_options = std.Options{
+    .logFn = logging.logFn,
+};
+
 pub fn main() !u8 {
+    try logging.init();
+    log.info("TEST", .{});
+    log.info("TEST 2", .{});
+
     const args = Args.parse() orelse {
         return 1;
     };
@@ -31,8 +41,8 @@ pub fn main() !u8 {
         .join => Connection.newClient(args.port orelse unreachable),
     } else Connection.newSingle();
     if (args.role == .host) {
-        std.log.info("hosting on port {}.", .{connection.port});
-        std.log.info("waiting for client to join...", .{});
+        log.info("hosting on port {}.", .{connection.port});
+        log.info("waiting for client to join...", .{});
     }
     try connection.init();
     defer connection.deinit();

@@ -1,6 +1,7 @@
 const Self = @This();
 
 const std = @import("std");
+const log = std.log;
 
 const State = @import("State.zig");
 
@@ -26,27 +27,27 @@ pub fn parse() ?Self {
             small = true;
         } else if (std.mem.eql(u8, arg, "host")) {
             if (role != null) {
-                std.log.err("invalid argument", .{});
+                log.err("invalid argument", .{});
                 return null;
             }
             role = .host;
         } else if (std.mem.eql(u8, arg, "join")) {
             if (role != null) {
-                std.log.err("invalid argument", .{});
+                log.err("invalid argument", .{});
                 return null;
             }
             role = .join;
 
             const port_str = args.next() orelse {
-                std.log.err("missing value", .{});
+                log.err("missing value", .{});
                 return null;
             };
             port = std.fmt.parseInt(u16, port_str, 10) catch {
-                std.log.err("invalid value", .{});
+                log.err("invalid value", .{});
                 return null;
             };
         } else {
-            std.log.err("invalid argument", .{});
+            log.err("invalid argument", .{});
             return null;
         }
     }
