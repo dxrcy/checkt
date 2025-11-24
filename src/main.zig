@@ -382,7 +382,12 @@ fn ping_worker(shared: struct {
 
         const now = try Instant.now();
         if (now.since(shared.last_ping.*) > TIMEOUT_NS) {
-            return error.RemoteTimeout;
+            // TODO: Extract as function?
+            if (handlers.globals.UI) |ui| {
+                ui.exit() catch {};
+            }
+            std.log.info("remote timeout", .{});
+            std.process.exit(0);
         }
     }
 }
