@@ -154,6 +154,7 @@ pub const Message = union(enum) {
     commit_move: CommitMove,
 
     debug_set_status: State.Status,
+    debug_force_commit_move: CommitMove,
 
     const TakenUpdate = struct {
         piece: State.Piece,
@@ -163,7 +164,6 @@ pub const Message = union(enum) {
     const CommitMove = struct {
         origin: State.Tile,
         move: Move,
-        allow_invalid: bool,
         // TODO: Add more information, to ensure everything is synced and valid
     };
 };

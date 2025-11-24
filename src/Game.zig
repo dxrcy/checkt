@@ -164,14 +164,20 @@ fn applyAndCommitMove(
     state: *State,
     origin: State.Tile,
     move: Move,
-    allow_invalid: bool,
+    debug_force: bool,
     channel: *Channel(Connection.Message),
 ) void {
     state.board.applyMove(origin, move);
 
-    channel.send(.{ .commit_move = .{
-        .origin = origin,
-        .move = move,
-        .allow_invalid = allow_invalid,
-    } });
+    if (debug_force) {
+        channel.send(.{ .debug_force_commit_move = .{
+            .origin = origin,
+            .move = move,
+        } });
+    } else {
+        channel.send(.{ .commit_move = .{
+            .origin = origin,
+            .move = move,
+        } });
+    }
 }

@@ -220,6 +220,7 @@ fn input_worker(shared: struct {
                 },
                 else => {},
             },
+
             .debug_force_move => if (state.status == .play) {
                 Game.toggleSelection(state, true, shared.send_channel);
             },
@@ -302,7 +303,7 @@ fn recv_worker(shared: struct {
             },
 
             .commit_move => |commit_move| {
-                if (!commit_move.allow_invalid and !Game.isMoveValid(
+                if (!Game.isMoveValid(
                     state,
                     state.getLocalSide().flip(),
                     commit_move.origin,
@@ -320,6 +321,13 @@ fn recv_worker(shared: struct {
 
             .debug_set_status => |status| {
                 state.status = status;
+                shared.render_channel.send(.update);
+            },
+
+            .debug_force_commit_move => |commit_move| {
+                state.board.applyMove(commit_move.origin, commit_move.move);
+                Game.advanceNextTurn(state);
+
                 shared.render_channel.send(.update);
             },
         }
