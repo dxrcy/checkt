@@ -18,6 +18,7 @@ const Queue = channel.Queue;
 
 pub const panic = std.debug.FullPanic(handlers.panic);
 
+// TODO: Move to new file
 const handlers = struct {
     const posix = std.posix;
 
@@ -133,6 +134,7 @@ pub fn main() !u8 {
     return 0;
 }
 
+// TODO: Move to new file
 fn MutexPtr(comptime T: type) type {
     return struct {
         const Self = @This();
@@ -158,6 +160,7 @@ fn MutexPtr(comptime T: type) type {
     };
 }
 
+// TODO: Move to new file
 const Worker = struct {
     const Self = @This();
 
@@ -175,7 +178,19 @@ const Worker = struct {
         args: @typeInfo(@TypeOf(function)).@"fn".params[0].type.?,
     ) void {
         handlers.THREAD_NAME = name;
-        function(args);
+
+        switch (@typeInfo(@typeInfo(@TypeOf(function)).@"fn".return_type.?)) {
+            .void => {
+                function(args);
+            },
+            .error_union => |error_union| {
+                comptime assert(error_union.payload == void);
+                function(args) catch |err| {
+                    std.debug.panic("returned {}", .{err});
+                };
+            },
+            else => comptime unreachable,
+        }
     }
 
     pub fn spawn(
@@ -380,7 +395,7 @@ fn recv_worker(shared: struct {
     state: *MutexPtr(State),
     connection: *Connection,
     render_channel: *Channel(RenderMessage),
-}) void {
+}) !void {
     while (true) {
         const message = shared.connection.recv() catch |err| switch (err) {
             error.Malformed => {
