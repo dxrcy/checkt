@@ -13,6 +13,15 @@ pub const globals = struct {
 
 pub threadlocal var THREAD_NAME: ?[]const u8 = null;
 
+pub fn exit(comptime fmt: []const u8, args: anytype) noreturn {
+    if (handlers.globals.UI) |ui| {
+        ui.exit() catch {};
+    }
+
+    std.log.info("exiting: " ++ fmt, args);
+    std.process.exit(0);
+}
+
 pub fn panic(msg: []const u8, first_trace_addr: ?usize) noreturn {
     if (globals.UI) |ui| {
         ui.exit() catch {};

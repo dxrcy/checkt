@@ -8,6 +8,7 @@ const Board = @import("Board.zig");
 const Connection = @import("Connection.zig");
 const Game = @import("Game.zig");
 const Ui = @import("Ui.zig");
+// TODO: Rename
 const handlers = @import("handlers.zig");
 
 const State = @import("State.zig");
@@ -359,11 +360,7 @@ fn recv_worker(shared: struct {
             },
 
             .debug_kill_remote => {
-                if (handlers.globals.UI) |ui| {
-                    ui.exit() catch {};
-                }
-                std.log.info("killed by remote", .{});
-                std.process.exit(0);
+                handlers.exit("killed by remote", .{});
             },
         }
     }
@@ -382,12 +379,7 @@ fn ping_worker(shared: struct {
 
         const now = try Instant.now();
         if (now.since(shared.last_ping.*) > TIMEOUT_NS) {
-            // TODO: Extract as function?
-            if (handlers.globals.UI) |ui| {
-                ui.exit() catch {};
-            }
-            std.log.info("remote timeout", .{});
-            std.process.exit(0);
+            handlers.exit("remote timeout", .{});
         }
     }
 }
