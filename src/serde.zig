@@ -46,6 +46,11 @@ pub fn serialize(comptime T: type, value: *const T, writer: *Io.Writer) SerError
             );
         },
 
+        .bool => {
+            const int = @intFromBool(value.*);
+            try serialize(@TypeOf(int), &int, writer);
+        },
+
         .@"enum" => {
             const int = @intFromEnum(value.*);
             try serialize(@TypeOf(int), &int, writer);
@@ -120,6 +125,15 @@ pub fn deserialize(comptime T: type, reader: *Io.Reader) DeError!T {
             ));
             return math.cast(T, padded) orelse {
                 return error.Malformed;
+            };
+        },
+
+        .bool => {
+            // Invalid `u1` handled when casting from byte
+            const int = try deserialize(@TypeOf(@intFromBool(true)), reader);
+            return switch (int) {
+                0 => false,
+                1 => true,
             };
         },
 
