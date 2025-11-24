@@ -1,66 +1,25 @@
 const std = @import("std");
 const assert = std.debug.assert;
-const fs = std.fs;
-const Thread = std.Thread;
 
 const Args = @import("Args.zig");
 const Board = @import("Board.zig");
 const Connection = @import("Connection.zig");
 const Game = @import("Game.zig");
 const Ui = @import("Ui.zig");
+const handlers = @import("handlers.zig");
 
 const State = @import("State.zig");
 const Tile = State.Tile;
 
+// TODO: Move to `concurrent.zig` ?
 const channel = @import("channel.zig");
 const Channel = channel.Channel;
-const Queue = channel.Queue;
+
+const concurrent = @import("concurrent.zig");
+const MutexPtr = concurrent.MutexPtr;
+const Worker = concurrent.Worker;
 
 pub const panic = std.debug.FullPanic(handlers.panic);
-
-// TODO: Move to new file
-const handlers = struct {
-    const posix = std.posix;
-
-    const globals = struct {
-        var UI: ?*Ui = null;
-        var RENDER_CHANNEL: ?*Channel(RenderMessage) = null;
-    };
-
-    threadlocal var THREAD_NAME: ?[]const u8 = null;
-
-    pub fn panic(msg: []const u8, first_trace_addr: ?usize) noreturn {
-        if (globals.UI) |ui| {
-            ui.exit() catch {};
-        }
-
-        std.debug.print("thread '{s}' panic: {s}\n", .{
-            THREAD_NAME orelse "??",
-            msg,
-        });
-        std.debug.dumpCurrentStackTrace(first_trace_addr orelse @returnAddress());
-
-        std.process.abort();
-    }
-
-    pub fn registerSignalHandlers() void {
-        const action = posix.Sigaction{
-            .handler = .{ .handler = handlers.signal },
-            .mask = posix.sigemptyset(),
-            .flags = 0,
-        };
-
-        posix.sigaction(posix.SIG.WINCH, &action, null);
-    }
-
-    fn signal(sig_num: c_int) callconv(.c) void {
-        _ = sig_num;
-
-        if (globals.RENDER_CHANNEL) |render_channel| {
-            render_channel.send(.redraw);
-        }
-    }
-};
 
 pub fn main() !u8 {
     const args = Args.parse() orelse {
@@ -134,89 +93,8 @@ pub fn main() !u8 {
     return 0;
 }
 
-// TODO: Move to new file
-fn MutexPtr(comptime T: type) type {
-    return struct {
-        const Self = @This();
-
-        mutex: Thread.Mutex,
-        object: *T,
-
-        pub fn new(object: *T) Self {
-            return Self{
-                .mutex = .{},
-                .object = object,
-            };
-        }
-
-        pub fn lock(self: *Self) *T {
-            self.mutex.lock();
-            return self.object;
-        }
-
-        pub fn unlock(self: *Self) void {
-            self.mutex.unlock();
-        }
-    };
-}
-
-// TODO: Move to new file
-const Worker = struct {
-    const Self = @This();
-
-    thread: Thread,
-    // TODO: Rename
-    lifetime: Lifetime,
-
-    // TODO: Rename
-    // TODO: Rename variants
-    const Lifetime = enum { join, detach };
-
-    fn functionWrapper(
-        comptime name: []const u8,
-        comptime function: anytype,
-        args: @typeInfo(@TypeOf(function)).@"fn".params[0].type.?,
-    ) void {
-        handlers.THREAD_NAME = name;
-
-        switch (@typeInfo(@typeInfo(@TypeOf(function)).@"fn".return_type.?)) {
-            .void => {
-                function(args);
-            },
-            .error_union => |error_union| {
-                comptime assert(error_union.payload == void);
-                function(args) catch |err| {
-                    std.debug.panic("returned {}", .{err});
-                };
-            },
-            else => comptime unreachable,
-        }
-    }
-
-    pub fn spawn(
-        comptime name: []const u8,
-        comptime lifetime: Lifetime,
-        comptime function: anytype,
-        args: @typeInfo(@TypeOf(function)).@"fn".params[0].type.?,
-    ) !Self {
-        const thread = try Thread.spawn(.{}, functionWrapper, .{ name, function, args });
-        return Self{
-            .thread = thread,
-            .lifetime = lifetime,
-        };
-    }
-
-    // TODO: Rename
-    pub fn consume(self: Self) void {
-        switch (self.lifetime) {
-            .join => self.thread.join(),
-            .detach => self.thread.detach(),
-        }
-    }
-};
-
 // TODO: Rename
-const RenderMessage = enum {
+pub const RenderMessage = enum {
     redraw,
     update,
 };
@@ -258,7 +136,7 @@ fn input_worker(shared: struct {
 }) void {
     var previous_state: State = undefined;
 
-    var stdin = fs.File.stdin();
+    var stdin = std.fs.File.stdin();
 
     while (true) {
         var buffer: [1]u8 = undefined;
