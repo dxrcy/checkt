@@ -197,23 +197,33 @@ pub fn render(self: *Self, state: *const State) void {
 
     switch (state.status) {
         .win => |side| {
-            if (self.small) {
-                // TODO:
-            } else {
-                self.renderTextLarge(&[_][]const u8{
+            self.renderTextLarge(
+                &[_][]const u8{
                     "game",
                     "over",
-                }, 14, 20);
+                },
+                if (self.small) 6 else 14,
+                if (self.small) 8 else 20,
+            );
 
-                const string = if (side == .white)
-                    "Blue wins"
-                else
-                    "Red wins";
-                const origin_x = (Board.SIZE * tile_size.WIDTH - string.len) / 2;
-                self.renderTextLineNormal(string, 26, origin_x, .{
+            const string = if (side == .white)
+                "Blue wins"
+            else
+                "Red wins";
+
+            const tile_width = if (self.small)
+                tile_size.WIDTH_SMALL
+            else
+                tile_size.WIDTH;
+
+            self.renderTextLineNormal(
+                string,
+                if (self.small) 18 else 26,
+                (Board.SIZE * (tile_width) - string.len) / 2,
+                .{
                     .bold = true,
-                });
-            }
+                },
+            );
         },
 
         .play => |active_side| {
