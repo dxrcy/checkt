@@ -61,22 +61,27 @@ pub fn main() !u8 {
         handlers.globals.RENDER_CHANNEL = &render_channel;
         defer handlers.globals.RENDER_CHANNEL = null;
 
-        const workers = [_]Worker{
+        const workers = [_]?Worker{
             try Worker.spawn("render", .detach, render_worker, .{
                 .state = &state_mutex,
                 .ui = &ui_mutex,
                 .render_channel = &render_channel,
             }),
+
             try Worker.spawn("input", .join, input_worker, .{
                 .state = &state_mutex,
                 .ui = &ui_mutex,
                 .render_channel = &render_channel,
                 .send_channel = &send_channel,
             }),
+
+            if (state.role == null) null else //
             try Worker.spawn("send", .detach, send_worker, .{
                 .connection = &connection,
                 .send_channel = &send_channel,
             }),
+
+            if (state.role == null) null else //
             try Worker.spawn("recv", .detach, recv_worker, .{
                 .state = &state_mutex,
                 .connection = &connection,
@@ -84,14 +89,18 @@ pub fn main() !u8 {
                 .send_channel = &send_channel,
                 .last_ping = &last_ping,
             }),
+
+            if (state.role == null) null else //
             try Worker.spawn("ping", .detach, ping_worker, .{
                 .send_channel = &send_channel,
                 .last_ping = &last_ping,
             }),
         };
 
-        for (&workers) |*worker| {
-            worker.consume();
+        for (&workers) |*worker_opt| {
+            if (worker_opt.*) |*worker| {
+                worker.consume();
+            }
         }
     }
 
