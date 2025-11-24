@@ -109,7 +109,7 @@ pub fn render(self: *Self, state: *const State) void {
     for (0..Board.SIZE) |rank| {
         for (0..Board.SIZE) |file| {
             const tile = Tile{ .rank = @intCast(rank), .file = @intCast(file) };
-            self.renderRectSolid(getTileRect(tile), .{
+            self.renderRectSolid(self.getTileRect(tile), .{
                 .char = ' ',
                 .bg = if (tile.isEven()) colors.TILE_WHITE else colors.TILE_BLACK,
             });
@@ -200,7 +200,7 @@ pub fn render(self: *Self, state: *const State) void {
 
             if (state.board.isSideInCheck(side)) {
                 const king = state.board.getKing(side);
-                self.renderRectSolid(getTileRect(king), .{
+                self.renderRectSolid(self.getTileRect(king), .{
                     .bg = colors.UNAVAILABLE,
                 });
                 self.renderPiece(.{
@@ -248,8 +248,8 @@ pub fn render(self: *Self, state: *const State) void {
                     }
                 }
 
-                self.renderRectSolid(getTileRect(selected), .{
                     .bg = getSideColor(side),
+                self.renderRectSolid(self.getTileRect(selected), .{
                 });
 
                 if (state.board.get(selected)) |piece| {
@@ -262,7 +262,7 @@ pub fn render(self: *Self, state: *const State) void {
             // Focus, remote
             if (state.player_remote) |player_remote| {
                 if (player_remote.selected) |selected| {
-                    self.renderRectSolid(getTileRect(selected), .{
+                    self.renderRectSolid(self.getTileRect(selected), .{
                         .bg = colors.REMOTE,
                     });
 
@@ -273,14 +273,14 @@ pub fn render(self: *Self, state: *const State) void {
                     }
                 }
 
-                self.renderRectHighlight(getTileRect(player_remote.focus), .{
+                self.renderRectHighlight(self.getTileRect(player_remote.focus), .{
                     .fg = colors.REMOTE,
                     .bold = true,
                 });
             }
 
             // Focus, local
-            self.renderRectHighlight(getTileRect(state.player_local.focus), .{
+            self.renderRectHighlight(self.getTileRect(state.player_local.focus), .{
                 .fg = if (state.isLocalSideActive())
                     getSideColor(side)
                 else
@@ -423,7 +423,7 @@ fn getSideColor(side: State.Side) Color {
     return if (side == .white) colors.PIECE_WHITE else colors.PIECE_BLACK;
 }
 
-fn getTileRect(tile: Tile) Rect {
+fn getTileRect(self: *const Self, tile: Tile) Rect {
     return Rect{
         .y = tile.rank * tile_size.HEIGHT,
         .x = tile.file * tile_size.WIDTH,
