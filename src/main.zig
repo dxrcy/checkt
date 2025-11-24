@@ -271,15 +271,30 @@ fn input_worker(shared: struct {
 fn send_worker(shared: struct {
     connection: *Connection,
     send_channel: *Channel(Connection.Message),
-}) void {
+}) !void {
+    var connection_mutex = MutexPtr(Connection).new(shared.connection);
+
     while (true) {
         const message = shared.send_channel.recv();
-        shared.connection.send(message) catch |err| switch (err) {
-            error.WriteFailed => {
-                // TODO: Handle
-            },
-        };
+        _ = try std.Thread.spawn(.{}, send_worker_action, .{ &connection_mutex, message });
     }
+}
+
+// NOTE: This is useful for simulating latency without blocking subsequent messages
+fn send_worker_action(
+    connection_mutex: *MutexPtr(Connection),
+    message: Connection.Message,
+) void {
+    Connection.simulateLatency();
+
+    const connection = connection_mutex.lock();
+    defer connection_mutex.unlock();
+
+    connection.send(message) catch |err| switch (err) {
+        error.WriteFailed => {
+            // TODO: Handle
+        },
+    };
 }
 
 fn recv_worker(shared: struct {
