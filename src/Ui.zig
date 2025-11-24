@@ -25,6 +25,7 @@ current_frame: u1,
 ascii: bool,
 small: bool,
 
+// TODO: Rename `debug_render_info`
 show_debug: bool,
 
 pub const tile_size = struct {
@@ -324,9 +325,14 @@ pub fn render(self: *Self, state: *const State) void {
         },
     }
 
-    // var buffer: [10]u8 = undefined;
-    // const string = std.fmt.bufPrint(&buffer, "{}", .{state.count}) catch unreachable;
-    // self.renderTextLineNormal(string, 0, 0, .{});
+    // if (self.last_ping) |last_ping| {
+    //     const time_ms = (std.time.Instant.now() catch unreachable)
+    //         .since(last_ping.*) / std.time.ns_per_ms;
+    //
+    //     var buffer: [32]u8 = undefined;
+    //     const string = std.fmt.bufPrint(&buffer, "{:10}", .{time_ms}) catch unreachable;
+    //     self.renderTextLineNormal(string, 0, 0, .{});
+    // }
 
     // self.renderTextLineNormal(
     //     if (state.role == .host) "host" else "join",

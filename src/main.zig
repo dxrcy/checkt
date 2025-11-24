@@ -1,5 +1,7 @@
 const std = @import("std");
 const assert = std.debug.assert;
+const time = std.time;
+const Instant = time.Instant;
 
 const Args = @import("Args.zig");
 const Board = @import("Board.zig");
@@ -53,6 +55,8 @@ pub fn main() !u8 {
         var render_channel = Channel(RenderMessage).empty;
         var send_channel = Channel(Connection.Message).empty;
 
+        var last_ping = try Instant.now();
+
         handlers.globals.RENDER_CHANNEL = &render_channel;
         defer handlers.globals.RENDER_CHANNEL = null;
 
@@ -76,6 +80,12 @@ pub fn main() !u8 {
                 .state = &state_mutex,
                 .connection = &connection,
                 .render_channel = &render_channel,
+                .send_channel = &send_channel,
+                .last_ping = &last_ping,
+            }),
+            try Worker.spawn("ping", .detach, ping_worker, .{
+                .send_channel = &send_channel,
+                .last_ping = &last_ping,
             }),
         };
 
@@ -271,10 +281,30 @@ fn send_worker(shared: struct {
     }
 }
 
+fn ping_worker(shared: struct {
+    send_channel: *Channel(Connection.Message),
+    last_ping: *Instant,
+}) !void {
+    const PING_NS = 400 * time.ns_per_ms;
+    const TIMEOUT_NS = 4 * time.ns_per_s;
+
+    while (true) {
+        std.Thread.sleep(PING_NS);
+        shared.send_channel.send(.{ .ping = {} });
+
+        const now = try Instant.now();
+        if (now.since(shared.last_ping.*) > TIMEOUT_NS) {
+            return error.RemoteTimeout;
+        }
+    }
+}
+
 fn recv_worker(shared: struct {
     state: *MutexPtr(State),
     connection: *Connection,
     render_channel: *Channel(RenderMessage),
+    send_channel: *Channel(Connection.Message),
+    last_ping: *Instant,
 }) !void {
     while (true) {
         const message = shared.connection.recv() catch |err| switch (err) {
@@ -296,6 +326,15 @@ fn recv_worker(shared: struct {
         defer shared.state.unlock();
 
         switch (message) {
+            .ping => {
+                shared.send_channel.send(.{ .pong = {} });
+                shared.render_channel.send(.update);
+            },
+            .pong => {
+                shared.last_ping.* = try Instant.now();
+                shared.render_channel.send(.update);
+            },
+
             .position => |position| {
                 if (!position.focus.isInBounds() or
                     (position.selected != null and !position.selected.?.isInBounds()))

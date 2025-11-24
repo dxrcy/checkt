@@ -117,7 +117,7 @@ pub fn send(self: *Self, message: Message) serde.SerError!void {
         return;
     }
 
-    simulateLatency();
+    // simulateLatency();
 
     try serde.serialize(Message, &message, &self.writer.interface);
     try self.writer.interface.flush();
@@ -128,7 +128,7 @@ pub fn recv(self: *Self) serde.DeError!Message {
         waitForever();
     }
 
-    simulateLatency();
+    // simulateLatency();
 
     return try serde.deserialize(Message, self.reader.interface());
 }
@@ -148,6 +148,9 @@ fn simulateLatency() void {
 pub const Message = union(enum) {
     const State = @import("State.zig");
     const Move = @import("moves.zig").Move;
+
+    ping: void,
+    pong: void,
 
     // TODO: Rename
     position: State.Player,
