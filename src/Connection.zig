@@ -155,6 +155,7 @@ pub const Message = union(enum) {
 
     debug_set_status: State.Status,
     debug_force_commit_move: CommitMove,
+    debug_kill_remote: void,
 
     const TakenUpdate = struct {
         piece: State.Piece,

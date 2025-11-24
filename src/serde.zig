@@ -38,6 +38,8 @@ pub fn serialize(comptime T: type, value: *const T, writer: *Io.Writer) SerError
     }
 
     switch (@typeInfo(T)) {
+        .void => {},
+
         .int => {
             try writer.writeInt(
                 byteAlignedInt(fixedSizeInt(T)),
@@ -118,6 +120,8 @@ pub fn deserialize(comptime T: type, reader: *Io.Reader) DeError!T {
     }
 
     switch (@typeInfo(T)) {
+        .void => return,
+
         .int => {
             const padded: fixedSizeInt(T) = @intCast(try reader.takeInt(
                 byteAlignedInt(fixedSizeInt(T)),

@@ -166,6 +166,7 @@ fn input_worker(shared: struct {
             debug_switch_side,
             debug_force_move,
             debug_toggle_info,
+            debug_kill_remote,
 
             _,
         };
@@ -185,6 +186,7 @@ fn input_worker(shared: struct {
             't' => .debug_switch_side,
             'y' => .debug_force_move,
             'p' => .debug_toggle_info,
+            'X' => .debug_kill_remote,
 
             else => continue,
         };
@@ -230,6 +232,10 @@ fn input_worker(shared: struct {
                 defer shared.ui.unlock();
 
                 ui.show_debug ^= true;
+            },
+
+            .debug_kill_remote => {
+                shared.send_channel.send(.{ .debug_kill_remote = {} });
             },
 
             _ => {},
@@ -329,6 +335,14 @@ fn recv_worker(shared: struct {
                 Game.advanceNextTurn(state);
 
                 shared.render_channel.send(.update);
+            },
+
+            .debug_kill_remote => {
+                if (handlers.globals.UI) |ui| {
+                    ui.exit() catch {};
+                }
+                std.log.info("killed by remote", .{});
+                std.process.exit(0);
             },
         }
     }
