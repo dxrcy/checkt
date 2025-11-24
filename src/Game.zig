@@ -133,7 +133,7 @@ pub fn toggleSelection(
             // TODO: Take piece if piece exists in destination
             .take = null,
         };
-        applyAndCommitMove(state, selected, move, channel);
+        applyAndCommitMove(state, selected, move, true, channel);
 
         player.selected = null;
         if (!updateStatus(state)) {
@@ -146,7 +146,7 @@ pub fn toggleSelection(
         return;
     assert(move.destination.eql(player.focus));
 
-    applyAndCommitMove(state, selected, move, channel);
+    applyAndCommitMove(state, selected, move, false, channel);
 
     player.selected = null;
 
@@ -160,6 +160,7 @@ fn applyAndCommitMove(
     state: *State,
     origin: State.Tile,
     move: Move,
+    allow_invalid: bool,
     channel: *Channel(Connection.Message),
 ) void {
     // TODO: Change method to return void???
@@ -168,5 +169,6 @@ fn applyAndCommitMove(
     channel.send(.{ .commit_move = .{
         .origin = origin,
         .move = move,
+        .allow_invalid = allow_invalid,
     } });
 }

@@ -310,7 +310,7 @@ fn recv_worker(shared: struct {
             },
 
             .commit_move => |commit_move| {
-                if (!Game.isMoveValid(
+                if (!commit_move.allow_invalid and !Game.isMoveValid(
                     state,
                     state.getLocalSide().flip(),
                     commit_move.origin,

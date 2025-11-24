@@ -169,6 +169,7 @@ pub const Message = union(enum) {
     const CommitMove = struct {
         origin: Tile,
         move: Move,
+        allow_invalid: bool,
         // TODO: Add more information, to ensure everything is synced and valid
     };
 };
