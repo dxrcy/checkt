@@ -95,8 +95,7 @@ pub fn new() Self {
 }
 
 pub fn get(self: *const Self, tile: Tile) ?Piece {
-    assert(tile.rank < SIZE);
-    assert(tile.file < SIZE);
+    assert(tile.isInBounds());
 
     const entry = self.tiles[tile.rank * SIZE + tile.file];
 
@@ -115,8 +114,7 @@ pub fn set(self: *Self, tile: Tile, piece: ?Piece) PieceUpdate {
 // TODO: Make better
 // PERF: Return `null` if no change was made
 pub fn setInner(self: *Self, tile: Tile, piece: ?Piece, special: bool) PieceUpdate {
-    assert(tile.rank < SIZE);
-    assert(tile.file < SIZE);
+    assert(tile.isInBounds());
 
     const entry = if (piece) |piece_unwrapped|
         TileEntry{
@@ -137,8 +135,7 @@ pub fn setInner(self: *Self, tile: Tile, piece: ?Piece, special: bool) PieceUpda
 }
 
 pub fn hasChanged(self: *const Self, tile: Tile) bool {
-    assert(tile.rank < SIZE);
-    assert(tile.file < SIZE);
+    assert(tile.isInBounds());
 
     const entry = self.tiles[tile.rank * SIZE + tile.file];
 
@@ -149,8 +146,7 @@ pub fn hasChanged(self: *const Self, tile: Tile) bool {
 }
 
 pub fn isSpecial(self: *const Self, tile: Tile) bool {
-    assert(tile.rank < SIZE);
-    assert(tile.file < SIZE);
+    assert(tile.isInBounds());
 
     const entry = self.tiles[tile.rank * SIZE + tile.file];
 
@@ -294,6 +290,10 @@ pub const Tile = struct {
 
     pub fn isEven(self: Tile) bool {
         return (self.rank + self.file) % 2 == 0;
+    }
+
+    pub fn isInBounds(self: Tile) bool {
+        return self.rank < SIZE and self.file < SIZE;
     }
 };
 
