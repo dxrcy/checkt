@@ -211,6 +211,8 @@ fn input_worker(shared: struct {
             .debug_switch_side => switch (state.status) {
                 .play => |*side| {
                     side.* = side.flip();
+                    shared.send_channel.send(.{ .debug_set_status = state.status });
+
                     state.player_local.selected = null;
                     if (state.player_remote) |*player_remote| {
                         player_remote.selected = null;
@@ -313,6 +315,11 @@ fn recv_worker(shared: struct {
                 state.board.applyMove(commit_move.origin, commit_move.move);
                 Game.advanceNextTurn(state);
 
+                shared.render_channel.send(.update);
+            },
+
+            .debug_set_status => |status| {
+                state.status = status;
                 shared.render_channel.send(.update);
             },
         }

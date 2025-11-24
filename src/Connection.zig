@@ -147,14 +147,13 @@ fn simulateLatency() void {
 // TODO: Move elsewhere!
 pub const Message = union(enum) {
     const State = @import("State.zig");
-    const Tile = State.Tile;
-    const Player = State.Player;
-
     const Move = @import("moves.zig").Move;
 
     // TODO: Rename
-    position: Player,
+    position: State.Player,
     commit_move: CommitMove,
+
+    debug_set_status: State.Status,
 
     const TakenUpdate = struct {
         piece: State.Piece,
@@ -162,7 +161,7 @@ pub const Message = union(enum) {
     };
 
     const CommitMove = struct {
-        origin: Tile,
+        origin: State.Tile,
         move: Move,
         allow_invalid: bool,
         // TODO: Add more information, to ensure everything is synced and valid
