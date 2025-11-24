@@ -152,11 +152,6 @@ pub const Message = union(enum) {
 
     const Move = @import("moves.zig").Move;
 
-    // OLD
-    // TODO: Remove
-    status: State.Status,
-
-    // NEW
     // TODO: Rename
     position: Player,
     commit_move: CommitMove,

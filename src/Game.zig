@@ -42,23 +42,31 @@ pub fn moveFocus(state: *State, direction: enum { left, right, up, down }) void 
     }
 }
 
-/// Returns `true` if status changed.
-// TODO: There is a better way of doing this. Perhaps remove this function
-pub fn updateStatus(state: *State) bool {
+// TODO: Rename....this one is tricky!
+pub fn advanceNextTurn(state: *State) void {
+    const current = state.status.play;
+
+    if (isWin(state)) |winning_side| {
+        assert(winning_side == current);
+        state.status = .{ .win = winning_side };
+    } else {
+        state.status = .{ .play = current.flip() };
+    }
+}
+
+/// Returns which side has won the game, if any.
+fn isWin(state: *const State) ?Side {
     const alive_white = state.board.isPieceAlive(.{ .kind = .king, .side = .white });
     const alive_black = state.board.isPieceAlive(.{ .kind = .king, .side = .black });
 
     assert(alive_white or alive_black);
     if (!alive_white) {
-        state.status = .{ .win = .black };
-        return true;
+        return .black;
     }
     if (!alive_black) {
-        state.status = .{ .win = .white };
-        return true;
+        return .white;
     }
-
-    return false;
+    return null;
 }
 
 pub fn isMoveValid(
@@ -121,10 +129,13 @@ pub fn toggleSelection(
     assert(piece.?.side == side);
 
     // DEBUG
+    // TODO: Merge these branches
     if (allow_invalid) {
         if (state.board.get(player.focus)) |piece_taken| {
             state.board.addTaken(piece_taken);
         }
+
+        player.selected = null;
 
         const move = Move{
             .destination = player.focus,
@@ -134,25 +145,18 @@ pub fn toggleSelection(
             .take = null,
         };
         applyAndCommitMove(state, selected, move, true, channel);
-
-        player.selected = null;
-        if (!updateStatus(state)) {
-            state.status = .{ .play = side.flip() };
-        }
+        advanceNextTurn(state);
         return;
     }
+
+    player.selected = null;
 
     const move = state.getAvailableMove(selected, player.focus) orelse
         return;
     assert(move.destination.eql(player.focus));
 
     applyAndCommitMove(state, selected, move, false, channel);
-
-    player.selected = null;
-
-    if (!updateStatus(state)) {
-        state.status = .{ .play = side.flip() };
-    }
+    advanceNextTurn(state);
 }
 
 /// Does **not** validate move.

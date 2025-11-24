@@ -245,10 +245,6 @@ fn input_worker(shared: struct {
         {
             shared.send_channel.send(.{ .position = state.player_local });
         }
-
-        if (!state.status.eql(previous_state.status)) {
-            shared.send_channel.send(.{ .status = state.status });
-        }
     }
 }
 
@@ -291,12 +287,6 @@ fn recv_worker(shared: struct {
         defer shared.state.unlock();
 
         switch (message) {
-            // TODO: Remove
-            .status => |status| {
-                state.status = status;
-                shared.render_channel.send(.update);
-            },
-
             .position => |position| {
                 if (!position.focus.isInBounds() or
                     (position.selected != null and !position.selected.?.isInBounds()))
@@ -321,7 +311,7 @@ fn recv_worker(shared: struct {
                 }
 
                 state.board.applyMove(commit_move.origin, commit_move.move);
-                // TODO: Change status
+                Game.advanceNextTurn(state);
 
                 shared.render_channel.send(.update);
             },
