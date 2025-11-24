@@ -281,24 +281,6 @@ fn send_worker(shared: struct {
     }
 }
 
-fn ping_worker(shared: struct {
-    send_channel: *Channel(Connection.Message),
-    last_ping: *Instant,
-}) !void {
-    const PING_NS = 400 * time.ns_per_ms;
-    const TIMEOUT_NS = 4 * time.ns_per_s;
-
-    while (true) {
-        std.Thread.sleep(PING_NS);
-        shared.send_channel.send(.{ .ping = {} });
-
-        const now = try Instant.now();
-        if (now.since(shared.last_ping.*) > TIMEOUT_NS) {
-            return error.RemoteTimeout;
-        }
-    }
-}
-
 fn recv_worker(shared: struct {
     state: *MutexPtr(State),
     connection: *Connection,
@@ -383,6 +365,24 @@ fn recv_worker(shared: struct {
                 std.log.info("killed by remote", .{});
                 std.process.exit(0);
             },
+        }
+    }
+}
+
+fn ping_worker(shared: struct {
+    send_channel: *Channel(Connection.Message),
+    last_ping: *Instant,
+}) !void {
+    const PING_NS = 400 * time.ns_per_ms;
+    const TIMEOUT_NS = 4 * time.ns_per_s;
+
+    while (true) {
+        std.Thread.sleep(PING_NS);
+        shared.send_channel.send(.{ .ping = {} });
+
+        const now = try Instant.now();
+        if (now.since(shared.last_ping.*) > TIMEOUT_NS) {
+            return error.RemoteTimeout;
         }
     }
 }
