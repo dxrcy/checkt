@@ -83,37 +83,9 @@ pub fn getLocalSide(self: *const Self) Side {
     return if (self.role == .host) .white else .black;
 }
 
-pub fn moveFocus(self: *Self, direction: enum { left, right, up, down }) void {
-    assert(self.status == .play);
-
-    const player = &self.player_local;
-    const tile = &player.focus;
-
-    switch (direction) {
-        .left => if (tile.file == 0) {
-            tile.file = Board.SIZE - 1;
-        } else {
-            tile.file -= 1;
-        },
-        .right => if (tile.file >= Board.SIZE - 1) {
-            tile.file = 0;
-        } else {
-            tile.file += 1;
-        },
-        .up => if (tile.rank == 0) {
-            tile.rank = Board.SIZE - 1;
-        } else {
-            tile.rank -= 1;
-        },
-        .down => if (tile.rank >= Board.SIZE - 1) {
-            tile.rank = 0;
-        } else {
-            tile.rank += 1;
-        },
-    }
-}
-
+// TODO: Remove ?
 pub fn isSelfActive(self: *const Self) bool {
+    // TODO: Use `getLocalSide`
     const side = switch (self.status) {
         .play => |side| side,
         else => return false,
@@ -122,24 +94,6 @@ pub fn isSelfActive(self: *const Self) bool {
         return true;
     }
     return (side == .white) == (self.role == .host);
-}
-
-/// Returns `true` if status changed.
-pub fn updateStatus(self: *Self) bool {
-    const alive_white = self.board.isPieceAlive(.{ .kind = .king, .side = .white });
-    const alive_black = self.board.isPieceAlive(.{ .kind = .king, .side = .black });
-
-    assert(alive_white or alive_black);
-    if (!alive_white) {
-        self.status = .{ .win = .black };
-        return true;
-    }
-    if (!alive_black) {
-        self.status = .{ .win = .white };
-        return true;
-    }
-
-    return false;
 }
 
 pub fn getAvailableMove(self: *const Self, origin: Tile, destination: Tile) ?Move {

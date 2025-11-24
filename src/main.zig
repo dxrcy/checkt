@@ -192,10 +192,10 @@ fn input_worker(shared: struct {
         switch (input) {
             .quit => break,
 
-            .left => if (state.status == .play) state.moveFocus(.left),
-            .right => if (state.status == .play) state.moveFocus(.right),
-            .up => if (state.status == .play) state.moveFocus(.up),
-            .down => if (state.status == .play) state.moveFocus(.down),
+            .left => if (state.status == .play) Game.moveFocus(state, .left),
+            .right => if (state.status == .play) Game.moveFocus(state, .right),
+            .up => if (state.status == .play) Game.moveFocus(state, .up),
+            .down => if (state.status == .play) Game.moveFocus(state, .down),
 
             .confirm => if (state.status == .play) {
                 Game.toggleSelection(state, false, shared.send_channel);

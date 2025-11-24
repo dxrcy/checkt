@@ -5,11 +5,61 @@ const assert = std.debug.assert;
 
 const Connection = @import("Connection.zig");
 const Channel = @import("concurrent.zig").Channel;
+const Board = @import("Board.zig");
 const Move = @import("moves.zig").Move;
 
 const State = @import("State.zig");
 const Side = State.Side;
 const Tile = State.Tile;
+
+pub fn moveFocus(state: *State, direction: enum { left, right, up, down }) void {
+    assert(state.status == .play);
+
+    const player = &state.player_local;
+    const tile = &player.focus;
+
+    switch (direction) {
+        .left => if (tile.file == 0) {
+            tile.file = Board.SIZE - 1;
+        } else {
+            tile.file -= 1;
+        },
+        .right => if (tile.file >= Board.SIZE - 1) {
+            tile.file = 0;
+        } else {
+            tile.file += 1;
+        },
+        .up => if (tile.rank == 0) {
+            tile.rank = Board.SIZE - 1;
+        } else {
+            tile.rank -= 1;
+        },
+        .down => if (tile.rank >= Board.SIZE - 1) {
+            tile.rank = 0;
+        } else {
+            tile.rank += 1;
+        },
+    }
+}
+
+/// Returns `true` if status changed.
+// TODO: There is a better way of doing this. Perhaps remove this function
+pub fn updateStatus(state: *State) bool {
+    const alive_white = state.board.isPieceAlive(.{ .kind = .king, .side = .white });
+    const alive_black = state.board.isPieceAlive(.{ .kind = .king, .side = .black });
+
+    assert(alive_white or alive_black);
+    if (!alive_white) {
+        state.status = .{ .win = .black };
+        return true;
+    }
+    if (!alive_black) {
+        state.status = .{ .win = .white };
+        return true;
+    }
+
+    return false;
+}
 
 pub fn isMoveValid(
     state: *const State,
@@ -86,7 +136,7 @@ pub fn toggleSelection(
         applyAndCommitMove(state, selected, move, channel);
 
         player.selected = null;
-        if (!state.updateStatus()) {
+        if (!updateStatus(state)) {
             state.status = .{ .play = side.flip() };
         }
         return;
@@ -100,7 +150,7 @@ pub fn toggleSelection(
 
     player.selected = null;
 
-    if (!state.updateStatus()) {
+    if (!updateStatus(state)) {
         state.status = .{ .play = side.flip() };
     }
 }
