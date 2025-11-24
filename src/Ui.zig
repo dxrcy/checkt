@@ -111,7 +111,7 @@ pub fn render(self: *Self, state: *const State) void {
             const tile = Tile{ .rank = @intCast(rank), .file = @intCast(file) };
             self.renderRectSolid(self.getTileRect(tile), .{
                 .char = ' ',
-                .bg = if (tile.isEven()) colors.TILE_WHITE else colors.TILE_BLACK,
+                .bg = getTileColor(tile, false),
             });
         }
     }
@@ -229,7 +229,7 @@ pub fn render(self: *Self, state: *const State) void {
                             continue;
 
                         self.renderPiece(piece, available.destination, .{
-                            .fg = if (available.destination.isEven()) colors.TILE_BLACK else colors.TILE_WHITE,
+                            .fg = getTileColor(available.destination, true),
                         });
 
                         // Take indirect
@@ -419,6 +419,9 @@ fn renderPiece(self: *Self, piece: Piece, tile: Tile, options: Cell.Options) voi
     }
 }
 
+fn getTileColor(tile: Tile, flip: bool) Color {
+    return if (tile.isEven() != flip) colors.TILE_WHITE else colors.TILE_BLACK;
+}
 fn getPieceColor(side: State.Side) Color {
     return if (side == .white) colors.PIECE_WHITE else colors.PIECE_BLACK;
 }
