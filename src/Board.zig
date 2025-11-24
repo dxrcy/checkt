@@ -53,11 +53,6 @@ pub const TileEntry = packed struct(u7) {
     }
 };
 
-pub const PieceUpdate = struct {
-    index: usize,
-    entry: TileEntry,
-};
-
 pub fn new() Self {
     var self = Self{
         .tiles = [_]TileEntry{.empty} ** SIZE ** SIZE,
@@ -107,13 +102,13 @@ pub fn get(self: *const Self, tile: Tile) ?Piece {
     }
 }
 
-pub fn set(self: *Self, tile: Tile, piece: ?Piece) PieceUpdate {
-    return self.setInner(tile, piece, false);
+pub fn set(self: *Self, tile: Tile, piece: ?Piece) void {
+    self.setInner(tile, piece, false);
 }
 
 // TODO: Make better
 // PERF: Return `null` if no change was made
-pub fn setInner(self: *Self, tile: Tile, piece: ?Piece, special: bool) PieceUpdate {
+pub fn setInner(self: *Self, tile: Tile, piece: ?Piece, special: bool) void {
     assert(tile.isInBounds());
 
     const entry = if (piece) |piece_unwrapped|
@@ -130,8 +125,6 @@ pub fn setInner(self: *Self, tile: Tile, piece: ?Piece, special: bool) PieceUpda
 
     const index = tile.rank * SIZE + tile.file;
     self.tiles[index] = entry;
-
-    return .{ .index = index, .entry = entry };
 }
 
 pub fn hasChanged(self: *const Self, tile: Tile) bool {
@@ -227,8 +220,7 @@ pub fn isSideInCheck(self: *const Self, side: Side) bool {
 }
 
 /// Does **not** validate move.
-// TODO: Create type for return array
-pub fn applyMove(self: *Self, origin: Tile, move: Move) [4]?PieceUpdate {
+pub fn applyMove(self: *Self, origin: Tile, move: Move) void {
     if (move.take) |take| {
         const piece_taken = self.get(take) orelse unreachable;
         self.addTaken(piece_taken);
@@ -236,29 +228,19 @@ pub fn applyMove(self: *Self, origin: Tile, move: Move) [4]?PieceUpdate {
         // self.set(take, null);
     }
 
-    var updates = [1]?PieceUpdate{null} ** 4;
-
     if (move.move_alt) |move_alt| {
-        const updates_new = self.movePieceOverride(
+        self.movePieceOverride(
             move_alt.origin,
             move_alt.destination,
             false,
         );
-        updates[2] = updates_new[0];
-        updates[3] = updates_new[1];
     }
 
-    {
-        const updates_new = self.movePieceOverride(
-            origin,
-            move.destination,
-            move.mark_special,
-        );
-        updates[0] = updates_new[0];
-        updates[1] = updates_new[1];
-    }
-
-    return updates;
+    self.movePieceOverride(
+        origin,
+        move.destination,
+        move.mark_special,
+    );
 }
 
 /// Clobbers any existing piece in `destination`.
@@ -268,16 +250,11 @@ pub fn movePieceOverride(
     origin: Tile,
     destination: Tile,
     special: bool,
-) [2]PieceUpdate {
+) void {
     const piece = self.get(origin) orelse unreachable;
 
-    const update_destination = self.setInner(destination, piece, special);
-    const update_origin = self.set(origin, null);
-
-    return [2]PieceUpdate{
-        update_destination,
-        update_origin,
-    };
+    self.setInner(destination, piece, special);
+    self.set(origin, null);
 }
 
 pub const Tile = struct {

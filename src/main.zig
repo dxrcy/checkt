@@ -320,7 +320,7 @@ fn recv_worker(shared: struct {
                     return error.IllegalMessage;
                 }
 
-                _ = state.board.applyMove(commit_move.origin, commit_move.move);
+                state.board.applyMove(commit_move.origin, commit_move.move);
                 // TODO: Change status
 
                 shared.render_channel.send(.update);

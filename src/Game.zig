@@ -163,8 +163,7 @@ fn applyAndCommitMove(
     allow_invalid: bool,
     channel: *Channel(Connection.Message),
 ) void {
-    // TODO: Change method to return void???
-    _ = state.board.applyMove(origin, move);
+    state.board.applyMove(origin, move);
 
     channel.send(.{ .commit_move = .{
         .origin = origin,
