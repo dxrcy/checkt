@@ -113,10 +113,10 @@ const colors = struct {
     pub const REMOTE = .blue;
 };
 
-pub fn render(self: *Self, state: *const Game) void {
+pub fn render(self: *Self, game: *const Game) void {
     self.getForeFrame().clear();
 
-    if (state.status.getBoard()) |board| {
+    if (game.state.getBoard()) |board| {
         // Board tile
         for (0..Board.SIZE) |rank| {
             for (0..Board.SIZE) |file| {
@@ -195,7 +195,7 @@ pub fn render(self: *Self, state: *const Game) void {
         }
     }
 
-    switch (state.status) {
+    switch (game.state) {
         .win => |win| {
             self.renderTextLarge(
                 &[_][]const u8{
@@ -232,10 +232,10 @@ pub fn render(self: *Self, state: *const Game) void {
         .play => |play| {
             const player = play.player_local;
 
-            const side: Side = if (state.role == null)
+            const side: Side = if (game.role == null)
                 play.active
             else
-                (if (state.role == .host) .white else .black);
+                (if (game.role == .host) .white else .black);
 
             // Highlight check
             if (play.board.isSideInCheck(side)) {
@@ -326,7 +326,7 @@ pub fn render(self: *Self, state: *const Game) void {
 
             // Focus - local
             self.renderRectHighlight(self.getTileRect(play.player_local.focus), .{
-                .fg = if (state.isLocalSideActive())
+                .fg = if (game.isLocalSideActive())
                     getPieceColor(side)
                 else
                     colors.UNAVAILABLE,

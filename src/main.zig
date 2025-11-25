@@ -10,9 +10,6 @@ const Connection = @import("connection/Connection.zig");
 const handlers = @import("env/handlers.zig");
 const logging = @import("env/logging.zig");
 const Game = @import("game/Game.zig");
-const State = Game.State;
-const Board = Game.State.Board;
-const Tile = Game.State.Tile;
 const Ui = @import("ui/Ui.zig");
 
 const Args = @import("Args.zig");
@@ -83,13 +80,12 @@ pub fn run() !u8 {
 
     handlers.registerSignalHandlers();
 
-    // TODO: Rename `game` (and elsewhere)
-    var state = Game.new(args.role);
-    const is_multiplayer = state.role != null;
+    var game = Game.new(args.role);
+    const is_multiplayer = game.role != null;
 
     log.info("starting game loop", .{});
     {
-        var state_mutex = MutexPtr(Game).new(&state);
+        var game_mutex = MutexPtr(Game).new(&game);
         var ui_mutex = MutexPtr(Ui).new(&ui);
 
         var render_channel = Channel(RenderMessage).empty;
@@ -106,13 +102,13 @@ pub fn run() !u8 {
 
         const workers = [_]?Worker{
             try Worker.spawn("render", .detach, renderWorker, .{
-                .state = &state_mutex,
+                .game = &game_mutex,
                 .ui = &ui_mutex,
                 .render_channel = &render_channel,
             }),
 
             try Worker.spawn("input", .join, inputWorker, .{
-                .state = &state_mutex,
+                .game = &game_mutex,
                 .ui = &ui_mutex,
                 .render_channel = &render_channel,
                 .send_channel = &send_channel,
@@ -126,7 +122,7 @@ pub fn run() !u8 {
 
             if (!is_multiplayer) null else //
             try Worker.spawn("recv", .detach, recvWorker, .{
-                .state = &state_mutex,
+                .game = &game_mutex,
                 .connection = &connection,
                 .render_channel = &render_channel,
                 .send_channel = &send_channel,
@@ -162,7 +158,7 @@ pub const RenderMessage = enum {
 
 // TODO: Rename shared mutex fields *_mutex ? and elsewhere
 fn renderWorker(shared: struct {
-    state: *MutexPtr(Game),
+    game: *MutexPtr(Game),
     ui: *MutexPtr(Ui),
     render_channel: *Channel(RenderMessage),
 }) void {
@@ -180,10 +176,10 @@ fn renderWorker(shared: struct {
         }
 
         {
-            const state = shared.state.lock();
-            defer shared.state.unlock();
+            const game = shared.game.lock();
+            defer shared.game.unlock();
 
-            ui.render(state);
+            ui.render(game);
         }
 
         ui.draw();
@@ -191,12 +187,12 @@ fn renderWorker(shared: struct {
 }
 
 fn inputWorker(shared: struct {
-    state: *MutexPtr(Game),
+    game: *MutexPtr(Game),
     ui: *MutexPtr(Ui),
     render_channel: *Channel(RenderMessage),
     send_channel: *Channel(Game.Message),
 }) void {
-    var previous_state: Game = undefined;
+    var previous_state: Game.State = undefined;
 
     var stdin = std.fs.File.stdin();
 
@@ -208,12 +204,12 @@ fn inputWorker(shared: struct {
             continue;
         };
 
-        const state = shared.state.lock();
-        defer shared.state.unlock();
+        const game = shared.game.lock();
+        defer shared.game.unlock();
 
-        previous_state = state.*;
+        previous_state = game.state;
 
-        if (state.handleInput(
+        if (game.handleInput(
             input,
             shared.ui,
             shared.send_channel,
@@ -223,8 +219,8 @@ fn inputWorker(shared: struct {
 
         shared.render_channel.send(.update);
 
-        if (state.status.getPlayerLocal()) |player_local| {
-            if (previous_state.status.getPlayerLocal()) |previous| {
+        if (game.state.getPlayerLocal()) |player_local| {
+            if (previous_state.getPlayerLocal()) |previous| {
                 if (!player_local.eql(previous.*)) {
                     shared.send_channel.send(.{ .position = player_local.* });
                 }
@@ -309,7 +305,7 @@ fn sendWorkerAction(
 }
 
 fn recvWorker(shared: struct {
-    state: *MutexPtr(Game),
+    game: *MutexPtr(Game),
     connection: *Connection,
     render_channel: *Channel(RenderMessage),
     send_channel: *Channel(Game.Message),
@@ -338,7 +334,7 @@ fn recvWorker(shared: struct {
         }
 
         handleMessage(.{
-            .state = shared.state,
+            .game = shared.game,
             .render_channel = shared.render_channel,
             .send_channel = shared.send_channel,
             .last_ping = shared.last_ping,
@@ -353,15 +349,15 @@ fn recvWorker(shared: struct {
 
 fn handleMessage(
     shared: struct {
-        state: *MutexPtr(Game),
+        game: *MutexPtr(Game),
         render_channel: *Channel(RenderMessage),
         send_channel: *Channel(Game.Message),
         last_ping: *Instant,
     },
     message: Game.Message,
 ) !void {
-    const state = shared.state.lock();
-    defer shared.state.unlock();
+    const game = shared.game.lock();
+    defer shared.game.unlock();
 
     switch (message) {
         .ping => {
@@ -380,7 +376,7 @@ fn handleMessage(
                 return error.IllegalMessage;
             }
 
-            const play = switch (state.status) {
+            const play = switch (game.state) {
                 .play => |*play| play,
                 else => return error.IllegalMessage,
             };
@@ -392,39 +388,39 @@ fn handleMessage(
 
         .commit_move => |commit_move| {
             if (!Game.isMoveValid(
-                state,
-                state.getLocalSide().flip(),
+                game,
+                game.getLocalSide().flip(),
                 commit_move.origin,
                 commit_move.move,
             )) {
                 return error.IllegalMessage;
             }
 
-            const play = switch (state.status) {
+            const play = switch (game.state) {
                 .play => |*play| play,
                 else => return error.IllegalMessage,
             };
 
             play.board.applyMove(commit_move.origin, commit_move.move);
-            Game.advanceNextTurn(state);
+            Game.advanceNextTurn(game);
 
             shared.render_channel.send(.update);
         },
 
         // TODO:
-        // .debug_set_status => |status| {
-        //     state.status = status;
+        // .debug_set_state => |state| {
+        //     game.state = state;
         //     shared.render_channel.send(.update);
         // },
 
         .debug_force_commit_move => |commit_move| {
-            const play = switch (state.status) {
+            const play = switch (game.state) {
                 .play => |*play| play,
                 else => return error.IllegalMessage,
             };
 
             play.board.applyMove(commit_move.origin, commit_move.move);
-            Game.advanceNextTurn(state);
+            Game.advanceNextTurn(game);
 
             shared.render_channel.send(.update);
         },

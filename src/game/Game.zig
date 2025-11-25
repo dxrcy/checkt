@@ -17,16 +17,14 @@ const Move = @import("moves.zig").Move;
 
 // TODO: Use 3-variant enum?
 role: ?Role,
-// TODO: Rename to `state` and `State`
-status: Status,
+state: State,
 
 pub const Role = enum {
     host,
     join,
 };
 
-// TODO: RENAME!!!
-pub const Status = union(enum) {
+pub const State = union(enum) {
     play: struct {
         active: Side,
         board: Board,
@@ -38,14 +36,14 @@ pub const Status = union(enum) {
         board: Board,
     },
 
-    pub fn getBoard(self: *const Status) ?*const Board {
+    pub fn getBoard(self: *const State) ?*const Board {
         return switch (self.*) {
             .play => |*play| &play.board,
             .win => |*win| &win.board,
         };
     }
 
-    pub fn getPlayerLocal(self: *const Status) ?*const Player {
+    pub fn getPlayerLocal(self: *const State) ?*const Player {
         return switch (self.*) {
             .play => |*play| &play.player_local,
             else => null,
@@ -87,7 +85,7 @@ pub const Message = union(enum) {
     commit_move: CommitMove,
 
     // TODO: Re-add
-    // debug_set_status: State.Status,
+    // debug_set_state: State,
     debug_force_commit_move: CommitMove,
     debug_kill_remote: void,
 
@@ -125,7 +123,7 @@ pub const Input = enum(u8) {
 pub fn new(role: ?Role) Self {
     var self = Self{
         .role = role,
-        .status = undefined,
+        .state = undefined,
     };
     self.resetGame();
     return self;
@@ -135,7 +133,7 @@ pub fn resetGame(self: *Self) void {
     const FOCUS_WHITE = Tile{ .rank = 5, .file = 6 };
     const FOCUS_BLACK = Tile{ .rank = 2, .file = 1 };
 
-    self.status = .{ .play = .{
+    self.state = .{ .play = .{
         .active = .white,
         .board = Board.new(),
 
@@ -162,28 +160,28 @@ pub fn handleInput(
     switch (input) {
         .quit => return true,
 
-        .left => if (self.status == .play) moveFocus(self, .left),
-        .right => if (self.status == .play) moveFocus(self, .right),
-        .up => if (self.status == .play) moveFocus(self, .up),
-        .down => if (self.status == .play) moveFocus(self, .down),
+        .left => if (self.state == .play) moveFocus(self, .left),
+        .right => if (self.state == .play) moveFocus(self, .right),
+        .up => if (self.state == .play) moveFocus(self, .up),
+        .down => if (self.state == .play) moveFocus(self, .down),
 
-        .confirm => if (self.status == .play) {
+        .confirm => if (self.state == .play) {
             selectOrMove(self, false, channel);
         },
-        .cancel => switch (self.status) {
+        .cancel => switch (self.state) {
             .play => |*play| play.player_local.selected = null,
             else => {},
         },
 
-        .reset => if (self.status == .win) {
+        .reset => if (self.state == .win) {
             self.resetGame();
         },
 
-        .debug_switch_side => switch (self.status) {
+        .debug_switch_side => switch (self.state) {
             .play => |*play| {
                 play.active = play.active.flip();
                 // TODO:
-                // channel.send(.{ .debug_set_status = state.status });
+                // channel.send(.{ .debug_set_state = self.state });
 
                 play.player_local.selected = null;
                 if (play.player_remote) |*player_remote| {
@@ -193,7 +191,7 @@ pub fn handleInput(
             else => {},
         },
 
-        .debug_force_move => if (self.status == .play) {
+        .debug_force_move => if (self.state == .play) {
             selectOrMove(self, true, channel);
         },
 
@@ -213,14 +211,14 @@ pub fn handleInput(
 }
 
 pub fn advanceNextTurn(self: *Self) void {
-    const play = switch (self.status) {
+    const play = switch (self.state) {
         .play => |*play| play,
         else => unreachable,
     };
 
     if (play.board.isWin()) |winner| {
         assert(winner == play.active);
-        self.status = .{ .win = .{
+        self.state = .{ .win = .{
             .winner = winner,
             .board = play.board,
         } };
@@ -230,7 +228,7 @@ pub fn advanceNextTurn(self: *Self) void {
 }
 
 fn moveFocus(self: *Self, direction: enum { left, right, up, down }) void {
-    const player = switch (self.status) {
+    const player = switch (self.state) {
         .play => |*play| &play.player_local,
         else => unreachable,
     };
@@ -266,7 +264,7 @@ fn selectOrMove(
     allow_invalid: bool,
     channel: *Channel(Message),
 ) void {
-    const play = switch (self.status) {
+    const play = switch (self.state) {
         .play => |*play| play,
         else => unreachable,
     };
@@ -334,7 +332,7 @@ fn applyAndCommitMove(
     debug_force: bool,
     channel: *Channel(Message),
 ) void {
-    const play = switch (self.status) {
+    const play = switch (self.state) {
         .play => |*play| play,
         else => unreachable,
     };
@@ -360,7 +358,7 @@ pub fn isMoveValid(
     origin: Tile,
     move: Move,
 ) bool {
-    const play = switch (self.status) {
+    const play = switch (self.state) {
         .play => |play| play,
         else => return false,
     };
@@ -387,7 +385,7 @@ pub fn getLocalSide(self: *const Self) Side {
 }
 
 pub fn isLocalSideActive(self: *const Self) bool {
-    switch (self.status) {
+    switch (self.state) {
         .play => |*play| {
             return self.role == null or
                 play.active == self.getLocalSide();
