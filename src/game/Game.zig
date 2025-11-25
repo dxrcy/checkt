@@ -10,35 +10,97 @@ const MutexPtr = concurrent.MutexPtr;
 const Connection = @import("../connection/Connection.zig");
 const Ui = @import("../ui/Ui.zig");
 
+pub const Board = @import("Board.zig");
+pub const Piece = Board.Piece;
+pub const Tile = Board.Tile;
 const Move = @import("moves.zig").Move;
-pub const State = @import("State.zig");
-const Board = State.Board;
-const Side = State.Side;
-const Tile = State.Tile;
+
+// TODO: Use 3-variant enum?
+role: ?Role,
+state: State,
+
+pub const Role = enum {
+    host,
+    join,
+};
+
+pub const State = union(enum) {
+    play: struct {
+        active: Side,
+        board: Board,
+        player_local: Player,
+        player_remote: ?Player,
+    },
+    win: struct {
+        winner: Side,
+        board: Board,
+    },
+
+    pub fn getBoard(self: *const State) ?*const Board {
+        return switch (self.*) {
+            .play => |*play| &play.board,
+            .win => |*win| &win.board,
+        };
+    }
+
+    pub fn getPlayerLocal(self: *const State) ?*const Player {
+        return switch (self.*) {
+            .play => |*play| &play.player_local,
+            else => null,
+        };
+    }
+};
+
+pub const Side = enum(u1) {
+    white = 0,
+    black = 1,
+
+    pub const COUNT = 2;
+
+    pub fn flip(self: Side) Side {
+        return if (self == .white) .black else .white;
+    }
+};
+
+pub const Player = struct {
+    focus: Tile,
+    selected: ?Tile,
+
+    pub fn eql(lhs: Player, rhs: Player) bool {
+        return lhs.focus.eql(rhs.focus) and
+            optionalEql(lhs.selected, rhs.selected);
+    }
+
+    fn optionalEql(lhs: anytype, rhs: anytype) bool {
+        return (lhs == null and rhs == null) or
+            (lhs != null and rhs != null and lhs.?.eql(rhs.?));
+    }
+};
 
 pub const Message = union(enum) {
     ping: void,
     pong: void,
 
-    position: State.Player,
+    position: Player,
     commit_move: CommitMove,
 
-    debug_set_status: State.Status,
+    debug_set_active: Side,
     debug_force_commit_move: CommitMove,
     debug_kill_remote: void,
 
     const TakenUpdate = struct {
-        piece: State.Piece,
+        piece: Piece,
         count: u32,
     };
 
     const CommitMove = struct {
-        origin: State.Tile,
+        origin: Tile,
         move: Move,
         // TODO: Add more information, to ensure everything is synced and valid
     };
 };
 
+// TODO: Do something better -- i forgot what
 pub const Input = enum(u8) {
     quit,
 
@@ -57,10 +119,38 @@ pub const Input = enum(u8) {
     debug_kill_remote,
 };
 
+pub fn new(role: ?Role) Self {
+    var self = Self{
+        .role = role,
+        .state = undefined,
+    };
+    self.resetGame();
+    return self;
+}
+
+pub fn resetGame(self: *Self) void {
+    const FOCUS_WHITE = Tile{ .rank = 5, .file = 6 };
+    const FOCUS_BLACK = Tile{ .rank = 2, .file = 1 };
+
+    self.state = .{ .play = .{
+        .active = .white,
+        .board = Board.new(),
+
+        .player_local = .{
+            .focus = if (self.role == .join) FOCUS_BLACK else FOCUS_WHITE,
+            .selected = null,
+        },
+        .player_remote = if (self.role == null) null else .{
+            .focus = if (self.role == .join) FOCUS_WHITE else FOCUS_BLACK,
+            .selected = null,
+        },
+    } };
+}
+
 /// Returns `true` if loop should break.
 pub fn handleInput(
+    self: *Self,
     input: Input,
-    state: *State,
     ui_mutex: *MutexPtr(Ui),
     channel: *Channel(Message),
 ) bool {
@@ -69,37 +159,38 @@ pub fn handleInput(
     switch (input) {
         .quit => return true,
 
-        .left => if (state.status == .play) moveFocus(state, .left),
-        .right => if (state.status == .play) moveFocus(state, .right),
-        .up => if (state.status == .play) moveFocus(state, .up),
-        .down => if (state.status == .play) moveFocus(state, .down),
+        .left => if (self.state == .play) moveFocus(self, .left),
+        .right => if (self.state == .play) moveFocus(self, .right),
+        .up => if (self.state == .play) moveFocus(self, .up),
+        .down => if (self.state == .play) moveFocus(self, .down),
 
-        .confirm => if (state.status == .play) {
-            selectOrMove(state, false, channel);
+        .confirm => if (self.state == .play) {
+            selectOrMove(self, false, channel);
         },
-        .cancel => if (state.status == .play) {
-            state.player_local.selected = null;
-        },
-
-        .reset => if (state.status == .win) {
-            state.resetGame();
+        .cancel => switch (self.state) {
+            .play => |*play| play.player_local.selected = null,
+            else => {},
         },
 
-        .debug_switch_side => switch (state.status) {
-            .play => |*side| {
-                side.* = side.flip();
-                channel.send(.{ .debug_set_status = state.status });
+        .reset => if (self.state == .win) {
+            self.resetGame();
+        },
 
-                state.player_local.selected = null;
-                if (state.player_remote) |*player_remote| {
+        .debug_switch_side => switch (self.state) {
+            .play => |*play| {
+                play.active = play.active.flip();
+                channel.send(.{ .debug_set_active = play.active });
+
+                play.player_local.selected = null;
+                if (play.player_remote) |*player_remote| {
                     player_remote.selected = null;
                 }
             },
             else => {},
         },
 
-        .debug_force_move => if (state.status == .play) {
-            selectOrMove(state, true, channel);
+        .debug_force_move => if (self.state == .play) {
+            selectOrMove(self, true, channel);
         },
 
         .debug_toggle_info => {
@@ -117,21 +208,29 @@ pub fn handleInput(
     return false;
 }
 
-pub fn advanceNextTurn(state: *State) void {
-    const current = state.status.play;
+pub fn advanceNextTurn(self: *Self) void {
+    const play = switch (self.state) {
+        .play => |*play| play,
+        else => unreachable,
+    };
 
-    if (isWin(state)) |winning_side| {
-        assert(winning_side == current);
-        state.status = .{ .win = winning_side };
+    if (play.board.isWin()) |winner| {
+        assert(winner == play.active);
+        self.state = .{ .win = .{
+            .winner = winner,
+            .board = play.board,
+        } };
     } else {
-        state.status = .{ .play = current.flip() };
+        play.active = play.active.flip();
     }
 }
 
-fn moveFocus(state: *State, direction: enum { left, right, up, down }) void {
-    assert(state.status == .play);
+fn moveFocus(self: *Self, direction: enum { left, right, up, down }) void {
+    const player = switch (self.state) {
+        .play => |*play| &play.player_local,
+        else => unreachable,
+    };
 
-    const player = &state.player_local;
     const tile = &player.focus;
 
     switch (direction) {
@@ -159,25 +258,25 @@ fn moveFocus(state: *State, direction: enum { left, right, up, down }) void {
 }
 
 fn selectOrMove(
-    state: *State,
+    self: *Self,
     allow_invalid: bool,
     channel: *Channel(Message),
 ) void {
-    const side = switch (state.status) {
-        .play => |side| side,
+    const play = switch (self.state) {
+        .play => |*play| play,
         else => unreachable,
     };
 
-    if (!state.isLocalSideActive()) {
+    if (!self.isLocalSideActive()) {
         return;
     }
 
-    const player = &state.player_local;
+    const player = &play.player_local;
 
     const selected = player.selected orelse {
-        const piece = state.board.get(player.focus);
+        const piece = play.board.get(player.focus);
         if (piece != null and
-            piece.?.side == side)
+            piece.?.side == play.active)
         {
             player.selected = player.focus;
         }
@@ -189,14 +288,14 @@ fn selectOrMove(
         return;
     }
 
-    const piece = state.board.get(selected);
-    assert(piece.?.side == side);
+    const piece = play.board.get(selected);
+    assert(piece.?.side == play.active);
 
     // DEBUG
     // TODO: Merge these branches
     if (allow_invalid) {
-        if (state.board.get(player.focus)) |piece_taken| {
-            state.board.addTaken(piece_taken);
+        if (play.board.get(player.focus)) |piece_taken| {
+            play.board.addTaken(piece_taken);
         }
 
         player.selected = null;
@@ -208,30 +307,35 @@ fn selectOrMove(
             // TODO: Take piece if piece exists in destination
             .take = null,
         };
-        applyAndCommitMove(state, selected, move, true, channel);
-        advanceNextTurn(state);
+        applyAndCommitMove(self, selected, move, true, channel);
+        advanceNextTurn(self);
         return;
     }
 
     player.selected = null;
 
-    const move = state.getAvailableMove(selected, player.focus) orelse
+    const move = play.board.getMatchingAvailableMove(selected, player.focus) orelse
         return;
     assert(move.destination.eql(player.focus));
 
-    applyAndCommitMove(state, selected, move, false, channel);
-    advanceNextTurn(state);
+    applyAndCommitMove(self, selected, move, false, channel);
+    advanceNextTurn(self);
 }
 
 /// Does **not** validate move.
 fn applyAndCommitMove(
-    state: *State,
-    origin: State.Tile,
+    self: *Self,
+    origin: Tile,
     move: Move,
     debug_force: bool,
     channel: *Channel(Message),
 ) void {
-    state.board.applyMove(origin, move);
+    const play = switch (self.state) {
+        .play => |*play| play,
+        else => unreachable,
+    };
+
+    play.board.applyMove(origin, move);
 
     if (debug_force) {
         channel.send(.{ .debug_force_commit_move = .{
@@ -246,36 +350,25 @@ fn applyAndCommitMove(
     }
 }
 
-/// Returns which side has won the game, if any.
-fn isWin(state: *const State) ?Side {
-    const alive_white = state.board.isPieceAlive(.{ .kind = .king, .side = .white });
-    const alive_black = state.board.isPieceAlive(.{ .kind = .king, .side = .black });
-
-    assert(alive_white or alive_black);
-    if (!alive_white) {
-        return .black;
-    }
-    if (!alive_black) {
-        return .white;
-    }
-    return null;
-}
-
 pub fn isMoveValid(
-    state: *const State,
+    self: *const Self,
     side: Side,
     origin: Tile,
     move: Move,
 ) bool {
-    const active_side = switch (state.status) {
-        .play => |active_side| active_side,
+    const play = switch (self.state) {
+        .play => |play| play,
         else => return false,
     };
-    if (side != active_side) {
+
+    if (side != play.active) {
         return false;
     }
 
-    const expected_move = state.getAvailableMove(origin, move.destination) orelse {
+    const expected_move = play.board.getMatchingAvailableMove(
+        origin,
+        move.destination,
+    ) orelse {
         return false;
     };
     if (!move.eql(expected_move)) {
@@ -283,4 +376,18 @@ pub fn isMoveValid(
     }
 
     return true;
+}
+
+pub fn getLocalSide(self: *const Self) Side {
+    return if (self.role == .host) .white else .black;
+}
+
+pub fn isLocalSideActive(self: *const Self) bool {
+    switch (self.state) {
+        .play => |*play| {
+            return self.role == null or
+                play.active == self.getLocalSide();
+        },
+        else => return false,
+    }
 }

@@ -4,11 +4,11 @@ const std = @import("std");
 const assert = std.debug.assert;
 const posix = std.posix;
 
-const State = @import("../game/State.zig");
-const Board = State.Board;
+const Game = @import("../game/Game.zig");
+const Board = Game.Board;
 const Piece = Board.Piece;
-const Side = State.Side;
-const Tile = State.Tile;
+const Side = Game.Side;
+const Tile = Game.Tile;
 
 const Frame = @import("Frame.zig");
 const Cell = Frame.Cell;
@@ -113,88 +113,90 @@ const colors = struct {
     pub const REMOTE = .blue;
 };
 
-pub fn render(self: *Self, state: *const State) void {
+pub fn render(self: *Self, game: *const Game) void {
     self.getForeFrame().clear();
 
-    // Board tile
-    for (0..Board.SIZE) |rank| {
-        for (0..Board.SIZE) |file| {
-            const tile = Tile{ .rank = @intCast(rank), .file = @intCast(file) };
-            self.renderRectSolid(self.getTileRect(tile), .{
-                .char = ' ',
-                .bg = getTileColor(tile, false),
-            });
-        }
-    }
-
-    // Board piece icons
-    for (0..Board.SIZE) |rank| {
-        for (0..Board.SIZE) |file| {
-            const tile = Tile{ .rank = @intCast(rank), .file = @intCast(file) };
-            if (state.board.get(tile)) |piece| {
-                self.renderPiece(piece, tile, .{});
+    if (game.state.getBoard()) |board| {
+        // Board tile
+        for (0..Board.SIZE) |rank| {
+            for (0..Board.SIZE) |file| {
+                const tile = Tile{ .rank = @intCast(rank), .file = @intCast(file) };
+                self.renderRectSolid(self.getTileRect(tile), .{
+                    .char = ' ',
+                    .bg = getTileColor(tile, false),
+                });
             }
         }
-    }
 
-    // Taken piece icons
-    for (std.meta.tags(Side), 0..) |side, y| {
-        var x: usize = 0;
-
-        for (std.meta.tags(Piece.Kind)) |kind| {
-            const piece = Piece{ .kind = kind, .side = side };
-
-            const count = state.board.getTaken(piece);
-            if (count == 0) {
-                continue;
+        // Board piece icons
+        for (0..Board.SIZE) |rank| {
+            for (0..Board.SIZE) |file| {
+                const tile = Tile{ .rank = @intCast(rank), .file = @intCast(file) };
+                if (board.get(tile)) |piece| {
+                    self.renderPiece(piece, tile, .{});
+                }
             }
+        }
 
-            const tile = Tile{
-                .rank = @intCast(Board.SIZE + y),
-                .file = @intCast(x % Board.SIZE),
-            };
+        // Taken piece icons
+        for (std.meta.tags(Side), 0..) |side, y| {
+            var x: usize = 0;
 
-            self.renderPiece(piece, tile, .{});
+            for (std.meta.tags(Piece.Kind)) |kind| {
+                const piece = Piece{ .kind = kind, .side = side };
 
-            if (count > 1) {
-                const position: Position = if (self.small) .{
-                    .x = tile.file * tile_size.WIDTH_SMALL + tile_size.PADDING_LEFT_SMALL + 2,
-                    .y = tile.rank * tile_size.HEIGHT_SMALL + 1,
-                } else .{
-                    .x = tile.file * tile_size.WIDTH + tile_size.PADDING_LEFT + Piece.WIDTH + 1,
-                    .y = tile.rank * tile_size.HEIGHT + 1,
+                const count = board.getTaken(piece);
+                if (count == 0) {
+                    continue;
+                }
+
+                const tile = Tile{
+                    .rank = @intCast(Board.SIZE + y),
+                    .file = @intCast(x % Board.SIZE),
                 };
 
-                self.renderDecimalInt(
-                    count,
-                    position,
-                    .{
-                        .fg = colors.HIGHLIGHT,
-                        .bold = true,
-                    },
-                );
+                self.renderPiece(piece, tile, .{});
+
+                if (count > 1) {
+                    const position: Position = if (self.small) .{
+                        .x = tile.file * tile_size.WIDTH_SMALL + tile_size.PADDING_LEFT_SMALL + 2,
+                        .y = tile.rank * tile_size.HEIGHT_SMALL + 1,
+                    } else .{
+                        .x = tile.file * tile_size.WIDTH + tile_size.PADDING_LEFT + Piece.WIDTH + 1,
+                        .y = tile.rank * tile_size.HEIGHT + 1,
+                    };
+
+                    self.renderDecimalInt(
+                        count,
+                        position,
+                        .{
+                            .fg = colors.HIGHLIGHT,
+                            .bold = true,
+                        },
+                    );
+                }
+
+                x += 1;
             }
 
-            x += 1;
-        }
+            // Placeholder
+            if (x == 0) {
+                const piece = Piece{ .kind = .pawn, .side = side };
+                const tile = Tile{
+                    .rank = @intCast(Board.SIZE + y),
+                    .file = @intCast(x % Board.SIZE),
+                };
 
-        // Placeholder
-        if (x == 0) {
-            const piece = Piece{ .kind = .pawn, .side = side };
-            const tile = Tile{
-                .rank = @intCast(Board.SIZE + y),
-                .file = @intCast(x % Board.SIZE),
-            };
-
-            self.renderPiece(piece, tile, .{
-                .fg = colors.PLACEHOLDER,
-                .bold = false,
-            });
+                self.renderPiece(piece, tile, .{
+                    .fg = colors.PLACEHOLDER,
+                    .bold = false,
+                });
+            }
         }
     }
 
-    switch (state.status) {
-        .win => |side| {
+    switch (game.state) {
+        .win => |win| {
             self.renderTextLarge(
                 &[_][]const u8{
                     "game",
@@ -206,7 +208,8 @@ pub fn render(self: *Self, state: *const State) void {
                     .{ .x = 14, .y = 20 },
             );
 
-            const string = if (side == .white)
+            // TODO: bruh
+            const string = if (win.winner == .white)
                 "Blue wins"
             else
                 "Red wins";
@@ -226,17 +229,17 @@ pub fn render(self: *Self, state: *const State) void {
             );
         },
 
-        .play => |active_side| {
-            const player = state.player_local;
+        .play => |play| {
+            const player = play.player_local;
 
-            const side: Side = if (state.role == null)
-                active_side
+            const side: Side = if (game.role == null)
+                play.active
             else
-                (if (state.role == .host) .white else .black);
+                (if (game.role == .host) .white else .black);
 
             // Highlight check
-            if (state.board.isSideInCheck(side)) {
-                const king = state.board.getKing(side);
+            if (play.board.isSideInCheck(side)) {
+                const king = play.board.getKing(side);
                 self.renderRectSolid(self.getTileRect(king), .{
                     .bg = colors.UNAVAILABLE,
                 });
@@ -250,19 +253,19 @@ pub fn render(self: *Self, state: *const State) void {
 
             // Selected, available moves
             if (player.selected) |selected| {
-                var available_moves = state.board.getAvailableMoves(selected);
+                var available_moves = play.board.getAvailableMoves(selected);
                 var has_available = false;
                 while (available_moves.next()) |available| {
                     has_available = true;
 
-                    if (state.board.get(available.destination)) |piece| {
+                    if (play.board.get(available.destination)) |piece| {
                         // Take direct
                         self.renderPiece(piece, available.destination, .{
                             .fg = colors.AVAILABLE,
                         });
                     } else {
                         // No take or take indirect
-                        const piece = state.board.get(selected) orelse
+                        const piece = play.board.get(selected) orelse
                             continue;
 
                         self.renderPiece(piece, available.destination, .{
@@ -271,7 +274,7 @@ pub fn render(self: *Self, state: *const State) void {
 
                         // Take indirect (en passant)
                         if (available.take) |take| {
-                            if (state.board.get(take)) |piece_take| {
+                            if (play.board.get(take)) |piece_take| {
                                 self.renderPiece(piece_take, take, .{
                                     .fg = colors.ALTERNATIVE,
                                 });
@@ -281,7 +284,7 @@ pub fn render(self: *Self, state: *const State) void {
 
                     // Additionally moved pieces (castling)
                     if (available.move_alt) |move_alt| {
-                        const piece = state.board.get(move_alt.origin) orelse unreachable;
+                        const piece = play.board.get(move_alt.origin) orelse unreachable;
                         self.renderPiece(piece, move_alt.origin, .{
                             .fg = colors.ALTERNATIVE,
                         });
@@ -294,7 +297,7 @@ pub fn render(self: *Self, state: *const State) void {
                 });
 
                 // Available move destination
-                if (state.board.get(selected)) |piece| {
+                if (play.board.get(selected)) |piece| {
                     self.renderPiece(piece, selected, .{
                         .fg = if (has_available) colors.TILE_BLACK else colors.UNAVAILABLE,
                     });
@@ -302,13 +305,13 @@ pub fn render(self: *Self, state: *const State) void {
             }
 
             // Focus - remote
-            if (state.player_remote) |player_remote| {
+            if (play.player_remote) |player_remote| {
                 if (player_remote.selected) |selected| {
                     self.renderRectSolid(self.getTileRect(selected), .{
                         .bg = colors.REMOTE,
                     });
 
-                    if (state.board.get(selected)) |piece| {
+                    if (play.board.get(selected)) |piece| {
                         self.renderPiece(piece, selected, .{
                             .fg = colors.TILE_BLACK,
                         });
@@ -322,8 +325,8 @@ pub fn render(self: *Self, state: *const State) void {
             }
 
             // Focus - local
-            self.renderRectHighlight(self.getTileRect(state.player_local.focus), .{
-                .fg = if (state.isLocalSideActive())
+            self.renderRectHighlight(self.getTileRect(play.player_local.focus), .{
+                .fg = if (game.isLocalSideActive())
                     getPieceColor(side)
                 else
                     colors.UNAVAILABLE,
@@ -471,7 +474,7 @@ fn renderPiece(self: *Self, piece: Piece, tile: Tile, options: Cell.Options) voi
 fn getTileColor(tile: Tile, flip: bool) Color {
     return if (tile.isEven() != flip) colors.TILE_WHITE else colors.TILE_BLACK;
 }
-fn getPieceColor(side: State.Side) Color {
+fn getPieceColor(side: Side) Color {
     return if (side == .white) colors.PIECE_WHITE else colors.PIECE_BLACK;
 }
 

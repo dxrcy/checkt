@@ -3,10 +3,10 @@ const Self = @This();
 const std = @import("std");
 const assert = std.debug.assert;
 
-const State = @import("../game/State.zig");
-const Board = State.Board;
-const Piece = State.Piece;
-const Tile = State.Tile;
+const Game = @import("../game/Game.zig");
+const Board = Game.Board;
+const Piece = Game.Piece;
+const Tile = Game.Tile;
 
 const Terminal = @import("Terminal.zig");
 const Attributes = Terminal.Attributes;

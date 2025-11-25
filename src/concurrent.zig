@@ -90,6 +90,7 @@ pub fn Channel(comptime T: type) type {
         const Self = @This();
 
         queue: Queue(T),
+        /// If set to `true`, `send` is a no-op and `recv` cannot be called.
         discard: bool,
 
         mutex: Thread.Mutex,
@@ -122,6 +123,9 @@ pub fn Channel(comptime T: type) type {
 
         pub fn recv(self: *Self) T {
             assert(!self.discard);
+            if (self.discard) {
+                return;
+            }
 
             self.mutex.lock();
             defer self.mutex.unlock();

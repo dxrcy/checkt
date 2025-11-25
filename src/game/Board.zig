@@ -8,8 +8,8 @@ const serde = @import("../connection/serde.zig");
 const moves = @import("moves.zig");
 const AvailableMoves = moves.AvailableMoves;
 const Move = moves.Move;
-const State = @import("State.zig");
-const Side = State.Side;
+const Game = @import("Game.zig");
+const Side = Game.Side;
 
 // TODO: Rename
 const TileIndex = u16;
@@ -181,6 +181,30 @@ pub fn getAvailableMoves(board: *const Self, origin: Tile) AvailableMoves {
     return AvailableMoves.new(board, origin, false);
 }
 
+pub fn getMatchingAvailableMove(
+    self: *const Self,
+    origin: Tile,
+    destination: Tile,
+) ?Move {
+    var available_moves = self.getAvailableMoves(origin);
+
+    while (available_moves.next()) |available| {
+        if (!available.destination.eql(destination)) {
+            continue;
+        }
+
+        // Ensure at most 1 move matches origin+destination
+        // This will fail if rules are defined (or applied) poorly
+        while (available_moves.next()) |other| {
+            assert(!other.destination.eql(destination));
+        }
+
+        return available;
+    }
+
+    return null;
+}
+
 pub fn getKing(self: *const Self, side: Side) Tile {
     return self.getTileOfFirst(.{
         .kind = .king,
@@ -213,6 +237,21 @@ pub fn isSideAttackedAt(self: *const Self, side: Side, target: Tile) bool {
 
 pub fn isSideInCheck(self: *const Self, side: Side) bool {
     return self.isSideAttackedAt(side, self.getKing(side));
+}
+
+/// Returns which side has won the game, if any.
+pub fn isWin(board: *const Self) ?Side {
+    const alive_white = board.isPieceAlive(.{ .kind = .king, .side = .white });
+    const alive_black = board.isPieceAlive(.{ .kind = .king, .side = .black });
+
+    assert(alive_white or alive_black);
+    if (!alive_white) {
+        return .black;
+    }
+    if (!alive_black) {
+        return .white;
+    }
+    return null;
 }
 
 /// Does **not** validate move.
