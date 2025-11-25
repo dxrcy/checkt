@@ -208,33 +208,7 @@ fn input_worker(shared: struct {
             return;
         }
 
-        const state = shared.state.lock();
-        defer shared.state.unlock();
-
-        previous_state = state.*;
-
-        // TODO: Move to `Game`
-        const Input = enum(u8) {
-            quit,
-
-            up,
-            down,
-            left,
-            right,
-
-            confirm,
-            cancel,
-            reset,
-
-            debug_switch_side,
-            debug_force_move,
-            debug_toggle_info,
-            debug_kill_remote,
-
-            _,
-        };
-
-        const input: Input = switch (buffer[0]) {
+        const input: Game.Input = switch (buffer[0]) {
             0x03 => .quit,
 
             'h' => .left,
@@ -254,57 +228,18 @@ fn input_worker(shared: struct {
             else => continue,
         };
 
-        log.info("input: {}", .{input});
+        const state = shared.state.lock();
+        defer shared.state.unlock();
 
-        // TODO: Move to `Game`
-        switch (input) {
-            .quit => break,
+        previous_state = state.*;
 
-            .left => if (state.status == .play) Game.moveFocus(state, .left),
-            .right => if (state.status == .play) Game.moveFocus(state, .right),
-            .up => if (state.status == .play) Game.moveFocus(state, .up),
-            .down => if (state.status == .play) Game.moveFocus(state, .down),
-
-            .confirm => if (state.status == .play) {
-                Game.selectOrMove(state, false, shared.send_channel);
-            },
-            .cancel => if (state.status == .play) {
-                state.player_local.selected = null;
-            },
-
-            .reset => if (state.status == .win) {
-                state.resetGame();
-            },
-
-            .debug_switch_side => switch (state.status) {
-                .play => |*side| {
-                    side.* = side.flip();
-                    shared.send_channel.send(.{ .debug_set_status = state.status });
-
-                    state.player_local.selected = null;
-                    if (state.player_remote) |*player_remote| {
-                        player_remote.selected = null;
-                    }
-                },
-                else => {},
-            },
-
-            .debug_force_move => if (state.status == .play) {
-                Game.selectOrMove(state, true, shared.send_channel);
-            },
-
-            .debug_toggle_info => {
-                const ui = shared.ui.lock();
-                defer shared.ui.unlock();
-
-                ui.debug_render_info ^= true;
-            },
-
-            .debug_kill_remote => {
-                shared.send_channel.send(.{ .debug_kill_remote = {} });
-            },
-
-            _ => {},
+        if (Game.handleInput(
+            input,
+            state,
+            shared.ui,
+            shared.send_channel,
+        )) {
+            break;
         }
 
         shared.render_channel.send(.update);
