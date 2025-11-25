@@ -5,7 +5,7 @@ const Board = @import("Board.zig");
 const Piece = Board.Piece;
 const Tile = Board.Tile;
 
-const RULES = @import("move_rules.zig").RULES;
+const RULES = @import("rules.zig").RULES;
 
 pub const Move = struct {
     destination: Tile,
