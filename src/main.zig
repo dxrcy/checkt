@@ -37,13 +37,15 @@ pub fn main() !u8 {
     output.stderr.init();
     try logging.init();
 
-    // FIXME: DO NOT DO THIS
-    // Wrap the rest of main in a new function
-    defer {
-        output.stdout.flush();
-        output.stderr.flush();
-    }
+    const exit = run();
 
+    output.stdout.flush();
+    output.stderr.flush();
+
+    return exit;
+}
+
+pub fn run() !u8 {
     const args = Args.parse() orelse {
         return 1;
     };
