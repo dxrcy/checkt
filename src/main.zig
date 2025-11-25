@@ -1,5 +1,6 @@
 const std = @import("std");
 const assert = std.debug.assert;
+const fs = std.fs;
 const log = std.log;
 const time = std.time;
 const Instant = std.time.Instant;
@@ -198,32 +199,11 @@ fn inputWorker(shared: struct {
     var stdin = std.fs.File.stdin();
 
     while (true) {
-        var buffer: [1]u8 = undefined;
-        const bytes_read = stdin.read(&buffer) catch {
+        const byte = try readByte(&stdin) orelse {
             return;
         };
-        if (bytes_read < 1) {
-            return;
-        }
-
-        const input: Game.Input = switch (buffer[0]) {
-            0x03 => .quit,
-
-            'h' => .left,
-            'l' => .right,
-            'k' => .up,
-            'j' => .down,
-
-            0x20 => .confirm,
-            0x1b => .cancel,
-            'r' => .reset,
-
-            't' => .debug_switch_side,
-            'y' => .debug_force_move,
-            'p' => .debug_toggle_info,
-            'X' => .debug_kill_remote,
-
-            else => continue,
+        const input = inputFromByte(byte) orelse {
+            continue;
         };
 
         const state = shared.state.lock();
@@ -246,6 +226,46 @@ fn inputWorker(shared: struct {
             shared.send_channel.send(.{ .position = state.player_local });
         }
     }
+}
+
+/// Returns `null` on **EOF** or if zero bytes were read.
+fn readByte(file: *fs.File) !?u8 {
+    var buffer: [1]u8 = undefined;
+    const bytes_read = file.read(&buffer) catch {
+        return null;
+    };
+    if (bytes_read < 1) {
+        return null;
+    }
+    return buffer[0];
+}
+
+fn inputFromByte(byte: u8) ?Game.Input {
+    const keys = struct {
+        const CTRL_C = 0x03;
+        const ESCAPE = 0x1b;
+        const SPACE = 0x20;
+    };
+
+    return switch (byte) {
+        keys.CTRL_C => .quit,
+
+        'h' => .left,
+        'l' => .right,
+        'k' => .up,
+        'j' => .down,
+
+        keys.SPACE => .confirm,
+        keys.ESCAPE => .cancel,
+        'r' => .reset,
+
+        't' => .debug_switch_side,
+        'y' => .debug_force_move,
+        'p' => .debug_toggle_info,
+        'X' => .debug_kill_remote,
+
+        else => return null,
+    };
 }
 
 fn sendWorker(shared: struct {
