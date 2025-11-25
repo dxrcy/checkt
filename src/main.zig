@@ -267,10 +267,12 @@ fn send_worker_action(
     connection_mutex: *MutexPtr(Connection),
     message: Game.Message,
 ) void {
+    const scoped = log.scoped(.send);
+
     Connection.simulateLatency();
 
     if (message != .ping and message != .pong) {
-        log.info("send: {t}", .{message});
+        scoped.info("{t}", .{message});
     }
 
     const connection = connection_mutex.lock();
@@ -290,24 +292,26 @@ fn recv_worker(shared: struct {
     send_channel: *Channel(Game.Message),
     last_ping: *Instant,
 }) !void {
+    const scoped = log.scoped(.recv);
+
     while (true) {
         const message = shared.connection.recv() catch |err| switch (err) {
             error.Malformed => {
-                log.warn("malformed message", .{});
+                scoped.warn("malformed message", .{});
                 continue;
             },
             error.ReadFailed => {
-                log.err("read failed", .{});
+                scoped.err("read failed", .{});
                 return;
             },
             error.EndOfStream => {
-                log.err("unexpected end of stream", .{});
+                scoped.err("unexpected end of stream", .{});
                 return;
             },
         };
 
         if (message != .ping and message != .pong) {
-            log.info("recv: {t}", .{message});
+            scoped.info("{t}", .{message});
         }
 
         const state = shared.state.lock();
@@ -330,7 +334,7 @@ fn recv_worker(shared: struct {
                 if (!position.focus.isInBounds() or
                     (position.selected != null and !position.selected.?.isInBounds()))
                 {
-                    log.warn("illegal message: {}", .{message});
+                    scoped.warn("illegal message: {}", .{message});
                     continue;
                 }
 
@@ -345,7 +349,7 @@ fn recv_worker(shared: struct {
                     commit_move.origin,
                     commit_move.move,
                 )) {
-                    log.warn("illegal message: {}", .{message});
+                    scoped.warn("illegal message: {}", .{message});
                     continue;
                 }
 
@@ -368,7 +372,7 @@ fn recv_worker(shared: struct {
             },
 
             .debug_kill_remote => {
-                log.warn("killed by remote", .{});
+                scoped.warn("killed by remote", .{});
                 handlers.exit();
             },
         }
@@ -382,6 +386,8 @@ fn ping_worker(shared: struct {
     const PING_NS = 400 * time.ns_per_ms;
     const TIMEOUT_NS = 4 * time.ns_per_s;
 
+    const scoped = log.scoped(.ping);
+
     while (true) {
         std.Thread.sleep(PING_NS);
         shared.send_channel.send(.{ .ping = {} });
@@ -390,14 +396,14 @@ fn ping_worker(shared: struct {
         const time_since_last = now.since(shared.last_ping.*);
 
         if (time_since_last > 2 * time.ns_per_s) {
-            log.warn(
+            scoped.warn(
                 "ms since last ping: {}",
                 .{time_since_last / time.ns_per_ms},
             );
         }
 
         if (time_since_last > TIMEOUT_NS) {
-            log.warn("remote timeout", .{});
+            scoped.warn("remote timeout", .{});
             handlers.exit();
         }
     }

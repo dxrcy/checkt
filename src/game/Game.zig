@@ -64,7 +64,7 @@ pub fn handleInput(
     ui_mutex: *MutexPtr(Ui),
     channel: *Channel(Message),
 ) bool {
-    log.info("input: {}", .{input});
+    log.scoped(.input).info("{t}", .{input});
 
     switch (input) {
         .quit => return true,

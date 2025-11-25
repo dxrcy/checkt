@@ -17,7 +17,7 @@ pub fn logFn(
     }
 
     logToFile(message_level, scope, fmt, args) catch |err| {
-        log.defaultLog(.err, .default, "failed to write to log file: {}", .{err});
+        log.defaultLog(.err, .logging, "failed to write to log file: {}", .{err});
         log.defaultLog(message_level, scope, fmt, args);
     };
 }
@@ -36,8 +36,12 @@ var INIT_FAILED = false;
 pub fn init() void {
     tryInit() catch |err| {
         INIT_FAILED = true;
-        log.defaultLog(.err, .default, "failed to initialize log file: {}", .{err});
-        log.defaultLog(.warn, .default, "switching to default logger", .{});
+        log.defaultLog(
+            .err,
+            .logging,
+            "failed to initialize log file: {} (switching to default logger)",
+            .{err},
+        );
     };
 }
 
