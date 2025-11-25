@@ -76,14 +76,14 @@ fn logToFile(
         return error.NotInitialized;
     };
 
+    const timestamp = std.time.timestamp();
     const level_txt = comptime message_level.asText();
-    const prefix = if (scope == .default) ": " else "(" ++ @tagName(scope) ++ "): ";
-
-    // TODO: Write timestamp
+    const prefix = if (scope == .default) "" else "(" ++ @tagName(scope) ++ ")";
 
     nosuspend {
+        try writer.interface.print("[{}] ", .{timestamp});
         try writer.interface.print(
-            level_txt ++ prefix ++ fmt ++ "\n",
+            level_txt ++ prefix ++ ": " ++ fmt ++ "\n",
             args,
         );
         try writer.interface.flush();
