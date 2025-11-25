@@ -9,7 +9,6 @@ const Board = @import("Board.zig");
 const Connection = @import("Connection.zig");
 const Game = @import("Game.zig");
 const Ui = @import("Ui.zig");
-// TODO: Rename
 const handlers = @import("handlers.zig");
 const logging = @import("logging.zig");
 const output = @import("output.zig");
@@ -53,7 +52,7 @@ pub fn run() !u8 {
     var connection = if (args.role) |role| switch (role) {
         .host => try Connection.newServer(),
         .join => Connection.newClient(args.port orelse unreachable),
-    } else Connection.newSingle();
+    } else Connection.newLocal();
 
     // TODO: Move to ui
     if (args.role == .host) {
@@ -142,7 +141,7 @@ pub fn run() !u8 {
 
         for (&workers) |*worker_opt| {
             if (worker_opt.*) |*worker| {
-                worker.consume();
+                worker.complete();
             }
         }
     }
@@ -155,7 +154,6 @@ pub fn run() !u8 {
     return 0;
 }
 
-// TODO: Rename
 pub const RenderMessage = enum {
     redraw,
     update,
@@ -267,7 +265,7 @@ fn input_worker(shared: struct {
             .down => if (state.status == .play) Game.moveFocus(state, .down),
 
             .confirm => if (state.status == .play) {
-                Game.toggleSelection(state, false, shared.send_channel);
+                Game.selectOrMove(state, false, shared.send_channel);
             },
             .cancel => if (state.status == .play) {
                 state.player_local.selected = null;
@@ -291,14 +289,14 @@ fn input_worker(shared: struct {
             },
 
             .debug_force_move => if (state.status == .play) {
-                Game.toggleSelection(state, true, shared.send_channel);
+                Game.selectOrMove(state, true, shared.send_channel);
             },
 
             .debug_toggle_info => {
                 const ui = shared.ui.lock();
                 defer shared.ui.unlock();
 
-                ui.show_debug ^= true;
+                ui.debug_render_info ^= true;
             },
 
             .debug_kill_remote => {

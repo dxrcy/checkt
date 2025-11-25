@@ -5,10 +5,18 @@ const net = std.net;
 
 const serde = @import("serde.zig");
 
+const START_ADDRESS = net.Address.parseIp4("127.0.0.1", 5100) catch unreachable;
+const PORT_RANGE = 400;
+
+const WRITE_BUFFER_SIZE = 1024;
+const READ_BUFFER_SIZE = 1024;
+
 // TODO: Use union for fields
 
-// TODO: Rename
-single: bool,
+/// `true` if then connection is not created, and methods are no-ops.
+local: bool,
+
+/// `null` if acting as a client.
 server: ?net.Server,
 port: u16,
 stream: net.Stream,
@@ -17,12 +25,6 @@ writer: net.Stream.Writer,
 reader: net.Stream.Reader,
 write_buffer: [WRITE_BUFFER_SIZE]u8,
 read_buffer: [READ_BUFFER_SIZE]u8,
-
-const START_ADDRESS = net.Address.parseIp4("127.0.0.1", 5100) catch unreachable;
-const PORT_RANGE = 400;
-
-const WRITE_BUFFER_SIZE = 1024;
-const READ_BUFFER_SIZE = 1024;
 
 const InitError =
     net.Server.AcceptError ||
@@ -33,7 +35,7 @@ pub fn newServer() !Self {
         return error.NoAvailablePort;
     };
     return Self{
-        .single = false,
+        .local = false,
         .server = server,
         .port = server.listen_address.getPort(),
         .stream = undefined,
@@ -46,7 +48,7 @@ pub fn newServer() !Self {
 
 pub fn newClient(port: u16) Self {
     return Self{
-        .single = false,
+        .local = false,
         .server = null,
         .port = port,
         .stream = undefined,
@@ -57,10 +59,9 @@ pub fn newClient(port: u16) Self {
     };
 }
 
-// TODO: Rename
-pub fn newSingle() Self {
+pub fn newLocal() Self {
     return Self{
-        .single = true,
+        .local = true,
         .server = null,
         .port = undefined,
         .stream = undefined,
@@ -84,7 +85,7 @@ fn createServer() !?net.Server {
 }
 
 pub fn init(self: *Self) InitError!void {
-    if (self.single) {
+    if (self.local) {
         return;
     }
 
@@ -102,7 +103,7 @@ pub fn init(self: *Self) InitError!void {
 }
 
 pub fn deinit(self: *Self) void {
-    if (self.single) {
+    if (self.local) {
         return;
     }
 
@@ -113,7 +114,7 @@ pub fn deinit(self: *Self) void {
 }
 
 pub fn send(self: *Self, message: Message) serde.SerError!void {
-    if (self.single) {
+    if (self.local) {
         return;
     }
 
@@ -122,7 +123,7 @@ pub fn send(self: *Self, message: Message) serde.SerError!void {
 }
 
 pub fn recv(self: *Self) serde.DeError!Message {
-    if (self.single) {
+    if (self.local) {
         waitForever();
     }
 
@@ -148,7 +149,6 @@ pub const Message = union(enum) {
     ping: void,
     pong: void,
 
-    // TODO: Rename
     position: State.Player,
     commit_move: CommitMove,
 

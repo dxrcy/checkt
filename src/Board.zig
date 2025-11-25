@@ -244,8 +244,7 @@ pub fn applyMove(self: *Self, origin: Tile, move: Move) void {
 }
 
 /// Clobbers any existing piece in `destination`.
-// TODO: Rename
-pub fn movePieceOverride(
+fn movePieceOverride(
     self: *Self,
     origin: Tile,
     destination: Tile,

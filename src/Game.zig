@@ -42,7 +42,6 @@ pub fn moveFocus(state: *State, direction: enum { left, right, up, down }) void 
     }
 }
 
-// TODO: Rename....this one is tricky!
 pub fn advanceNextTurn(state: *State) void {
     const current = state.status.play;
 
@@ -93,8 +92,7 @@ pub fn isMoveValid(
     return true;
 }
 
-// TODO: Rename
-pub fn toggleSelection(
+pub fn selectOrMove(
     state: *State,
     allow_invalid: bool,
     channel: *Channel(Connection.Message),

@@ -33,12 +33,15 @@ pub const Worker = struct {
     const Self = @This();
 
     thread: Thread,
-    // TODO: Rename
-    lifetime: Lifetime,
+    completion: Completion,
 
-    // TODO: Rename
-    // TODO: Rename variants
-    const Lifetime = enum { join, detach };
+    /// How to 'use' a thread.
+    const Completion = enum {
+        /// Wait for completion.
+        join,
+        /// Ignore and forget.
+        detach,
+    };
 
     fn functionWrapper(
         comptime name: []const u8,
@@ -63,20 +66,19 @@ pub const Worker = struct {
 
     pub fn spawn(
         comptime name: []const u8,
-        comptime lifetime: Lifetime,
+        comptime lifetime: Completion,
         comptime function: anytype,
         args: @typeInfo(@TypeOf(function)).@"fn".params[0].type.?,
     ) !Self {
         const thread = try Thread.spawn(.{}, functionWrapper, .{ name, function, args });
         return Self{
             .thread = thread,
-            .lifetime = lifetime,
+            .completion = lifetime,
         };
     }
 
-    // TODO: Rename
-    pub fn consume(self: Self) void {
-        switch (self.lifetime) {
+    pub fn complete(self: Self) void {
+        switch (self.completion) {
             .join => self.thread.join(),
             .detach => self.thread.detach(),
         }

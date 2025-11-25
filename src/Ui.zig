@@ -25,8 +25,7 @@ current_frame: u1,
 ascii: bool,
 small: bool,
 
-// TODO: Rename `debug_render_info`
-show_debug: bool,
+debug_render_info: bool,
 
 pub const tile_size = struct {
     pub const WIDTH: usize = Piece.WIDTH + PADDING_LEFT + PADDING_RIGHT;
@@ -63,7 +62,7 @@ pub fn new(ascii: bool, small: bool) Self {
         .current_frame = 0,
         .ascii = ascii,
         .small = small,
-        .show_debug = false,
+        .debug_render_info = false,
     };
 }
 
@@ -601,7 +600,7 @@ pub fn draw(self: *Self) void {
 
         self.terminal.print("\r\x1b[K", .{});
 
-        if (self.show_debug) {
+        if (self.debug_render_info) {
             self.terminal.print("{s}\t{}", .{
                 field.name,
                 @field(updates, field.name),
