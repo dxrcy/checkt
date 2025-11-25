@@ -312,68 +312,87 @@ fn recv_worker(shared: struct {
             scoped.info("{t}", .{message});
         }
 
-        const state = shared.state.lock();
-        defer shared.state.unlock();
-
-        // TODO: Move the following to a new function -> !void
-        // And handle illegal move here (log)
-
-        switch (message) {
-            .ping => {
-                shared.send_channel.send(.{ .pong = {} });
-                shared.render_channel.send(.update);
+        handleMessage(.{
+            .state = shared.state,
+            .render_channel = shared.render_channel,
+            .send_channel = shared.send_channel,
+            .last_ping = shared.last_ping,
+        }, message) catch |err| switch (err) {
+            error.IllegalMessage => {
+                scoped.warn("illegal message: {}", .{message});
             },
-            .pong => {
-                shared.last_ping.* = try Instant.now();
-                shared.render_channel.send(.update);
-            },
+            else => |err2| return err2,
+        };
+    }
+}
 
-            .position => |position| {
-                if (!position.focus.isInBounds() or
-                    (position.selected != null and !position.selected.?.isInBounds()))
-                {
-                    scoped.warn("illegal message: {}", .{message});
-                    continue;
-                }
+fn handleMessage(
+    shared: struct {
+        state: *MutexPtr(State),
+        render_channel: *Channel(RenderMessage),
+        send_channel: *Channel(Game.Message),
+        last_ping: *Instant,
+    },
+    message: Game.Message,
+) !void {
+    const scoped = log.scoped(.recv);
 
-                state.player_remote = position;
-                shared.render_channel.send(.update);
-            },
+    const state = shared.state.lock();
+    defer shared.state.unlock();
 
-            .commit_move => |commit_move| {
-                if (!Game.isMoveValid(
-                    state,
-                    state.getLocalSide().flip(),
-                    commit_move.origin,
-                    commit_move.move,
-                )) {
-                    scoped.warn("illegal message: {}", .{message});
-                    continue;
-                }
+    switch (message) {
+        .ping => {
+            shared.send_channel.send(.{ .pong = {} });
+            shared.render_channel.send(.update);
+        },
+        .pong => {
+            shared.last_ping.* = try Instant.now();
+            shared.render_channel.send(.update);
+        },
 
-                state.board.applyMove(commit_move.origin, commit_move.move);
-                Game.advanceNextTurn(state);
+        .position => |position| {
+            if (!position.focus.isInBounds() or
+                (position.selected != null and !position.selected.?.isInBounds()))
+            {
+                return error.IllegalMessage;
+            }
 
-                shared.render_channel.send(.update);
-            },
+            state.player_remote = position;
+            shared.render_channel.send(.update);
+        },
 
-            .debug_set_status => |status| {
-                state.status = status;
-                shared.render_channel.send(.update);
-            },
+        .commit_move => |commit_move| {
+            if (!Game.isMoveValid(
+                state,
+                state.getLocalSide().flip(),
+                commit_move.origin,
+                commit_move.move,
+            )) {
+                return error.IllegalMessage;
+            }
 
-            .debug_force_commit_move => |commit_move| {
-                state.board.applyMove(commit_move.origin, commit_move.move);
-                Game.advanceNextTurn(state);
+            state.board.applyMove(commit_move.origin, commit_move.move);
+            Game.advanceNextTurn(state);
 
-                shared.render_channel.send(.update);
-            },
+            shared.render_channel.send(.update);
+        },
 
-            .debug_kill_remote => {
-                scoped.warn("killed by remote", .{});
-                handlers.exit();
-            },
-        }
+        .debug_set_status => |status| {
+            state.status = status;
+            shared.render_channel.send(.update);
+        },
+
+        .debug_force_commit_move => |commit_move| {
+            state.board.applyMove(commit_move.origin, commit_move.move);
+            Game.advanceNextTurn(state);
+
+            shared.render_channel.send(.update);
+        },
+
+        .debug_kill_remote => {
+            scoped.warn("killed by remote", .{});
+            handlers.exit();
+        },
     }
 }
 
