@@ -278,7 +278,7 @@ fn send_worker_action(
 
     connection.send(message) catch |err| switch (err) {
         error.WriteFailed => {
-            // TODO: Handle
+            scoped.warn("write failed", .{});
         },
     };
 }
