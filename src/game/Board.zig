@@ -18,7 +18,6 @@ pub const SIZE: TileIndex = 8;
 pub const MAX_PIECE_COUNT: usize = SIZE * 2 * Side.COUNT;
 
 tiles: [SIZE * SIZE]TileEntry,
-// TODO: Move to `State`
 taken: [Piece.Kind.COUNT * Side.COUNT]u32,
 
 // TODO: Make better
@@ -160,8 +159,6 @@ pub fn addTaken(self: *Self, piece: Piece) void {
     self.taken[piece.toInt()] += 1;
 }
 
-// TODO: Create iterator for pieces/tiles?
-
 pub fn getTileOfFirst(self: *const Self, target: Piece) ?Tile {
     for (0..SIZE) |rank| {
         for (0..SIZE) |file| {
@@ -223,8 +220,7 @@ pub fn applyMove(self: *Self, origin: Tile, move: Move) void {
     if (move.take) |take| {
         const piece_taken = self.get(take) orelse unreachable;
         self.addTaken(piece_taken);
-        // TODO: Is this right
-        // self.set(take, null);
+        self.set(take, null);
     }
 
     if (move.move_alt) |move_alt| {
