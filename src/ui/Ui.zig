@@ -230,6 +230,7 @@ pub fn render(self: *Self, state: *const State) void {
                 active_side
             else if (state.role == .host) .white else .black;
 
+            // Highlight check
             if (state.board.isSideInCheck(side)) {
                 const king = state.board.getKing(side);
                 self.renderRectSolid(self.getTileRect(king), .{
@@ -264,14 +265,17 @@ pub fn render(self: *Self, state: *const State) void {
                             .fg = getTileColor(available.destination, true),
                         });
 
-                        // Take indirect
+                        // Take indirect (en passant)
                         if (available.take) |take| {
-                            self.renderPiece(piece, take, .{
-                                .fg = colors.ALTERNATIVE,
-                            });
+                            if (state.board.get(take)) |piece_take| {
+                                self.renderPiece(piece_take, take, .{
+                                    .fg = colors.ALTERNATIVE,
+                                });
+                            }
                         }
                     }
 
+                    // Additionally moved pieces (castling)
                     if (available.move_alt) |move_alt| {
                         const piece = state.board.get(move_alt.origin) orelse unreachable;
                         self.renderPiece(piece, move_alt.origin, .{
@@ -280,10 +284,12 @@ pub fn render(self: *Self, state: *const State) void {
                     }
                 }
 
+                // Highlight selected
                 self.renderRectSolid(self.getTileRect(selected), .{
                     .bg = getPieceColor(side),
                 });
 
+                // Available move destination
                 if (state.board.get(selected)) |piece| {
                     self.renderPiece(piece, selected, .{
                         .fg = if (has_available) colors.TILE_BLACK else colors.UNAVAILABLE,
@@ -291,7 +297,7 @@ pub fn render(self: *Self, state: *const State) void {
                 }
             }
 
-            // Focus, remote
+            // Focus - remote
             if (state.player_remote) |player_remote| {
                 if (player_remote.selected) |selected| {
                     self.renderRectSolid(self.getTileRect(selected), .{
@@ -311,7 +317,7 @@ pub fn render(self: *Self, state: *const State) void {
                 });
             }
 
-            // Focus, local
+            // Focus - local
             self.renderRectHighlight(self.getTileRect(state.player_local.focus), .{
                 .fg = if (state.isLocalSideActive())
                     getPieceColor(side)
@@ -321,6 +327,8 @@ pub fn render(self: *Self, state: *const State) void {
             });
         },
     }
+
+    // DEBUG
 
     // if (self.last_ping) |last_ping| {
     //     const time_ms = (std.time.Instant.now() catch unreachable)
