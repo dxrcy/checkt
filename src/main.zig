@@ -83,12 +83,13 @@ pub fn run() !u8 {
 
     handlers.registerSignalHandlers();
 
-    var state = State.new(args.role);
+    // TODO: Rename `game` (and elsewhere)
+    var state = Game.new(args.role);
     const is_multiplayer = state.role != null;
 
     log.info("starting game loop", .{});
     {
-        var state_mutex = MutexPtr(State).new(&state);
+        var state_mutex = MutexPtr(Game).new(&state);
         var ui_mutex = MutexPtr(Ui).new(&ui);
 
         var render_channel = Channel(RenderMessage).empty;
@@ -161,7 +162,7 @@ pub const RenderMessage = enum {
 
 // TODO: Rename shared mutex fields *_mutex ? and elsewhere
 fn renderWorker(shared: struct {
-    state: *MutexPtr(State),
+    state: *MutexPtr(Game),
     ui: *MutexPtr(Ui),
     render_channel: *Channel(RenderMessage),
 }) void {
@@ -190,12 +191,12 @@ fn renderWorker(shared: struct {
 }
 
 fn inputWorker(shared: struct {
-    state: *MutexPtr(State),
+    state: *MutexPtr(Game),
     ui: *MutexPtr(Ui),
     render_channel: *Channel(RenderMessage),
     send_channel: *Channel(Game.Message),
 }) void {
-    var previous_state: State = undefined;
+    var previous_state: Game = undefined;
 
     var stdin = std.fs.File.stdin();
 
@@ -212,9 +213,8 @@ fn inputWorker(shared: struct {
 
         previous_state = state.*;
 
-        if (Game.handleInput(
+        if (state.handleInput(
             input,
-            state,
             shared.ui,
             shared.send_channel,
         )) {
@@ -223,8 +223,8 @@ fn inputWorker(shared: struct {
 
         shared.render_channel.send(.update);
 
-        if (state.getPlayerLocal()) |player_local| {
-            if (previous_state.getPlayerLocal()) |previous| {
+        if (state.status.getPlayerLocal()) |player_local| {
+            if (previous_state.status.getPlayerLocal()) |previous| {
                 if (!player_local.eql(previous.*)) {
                     shared.send_channel.send(.{ .position = player_local.* });
                 }
@@ -309,7 +309,7 @@ fn sendWorkerAction(
 }
 
 fn recvWorker(shared: struct {
-    state: *MutexPtr(State),
+    state: *MutexPtr(Game),
     connection: *Connection,
     render_channel: *Channel(RenderMessage),
     send_channel: *Channel(Game.Message),
@@ -353,7 +353,7 @@ fn recvWorker(shared: struct {
 
 fn handleMessage(
     shared: struct {
-        state: *MutexPtr(State),
+        state: *MutexPtr(Game),
         render_channel: *Channel(RenderMessage),
         send_channel: *Channel(Game.Message),
         last_ping: *Instant,

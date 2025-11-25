@@ -5,6 +5,7 @@ const assert = std.debug.assert;
 const posix = std.posix;
 
 const State = @import("../game/State.zig");
+const Game = @import("../game/Game.zig");
 const Board = State.Board;
 const Piece = Board.Piece;
 const Side = State.Side;
@@ -113,10 +114,10 @@ const colors = struct {
     pub const REMOTE = .blue;
 };
 
-pub fn render(self: *Self, state: *const State) void {
+pub fn render(self: *Self, state: *const Game) void {
     self.getForeFrame().clear();
 
-    if (state.getBoard()) |board| {
+    if (state.status.getBoard()) |board| {
         // Board tile
         for (0..Board.SIZE) |rank| {
             for (0..Board.SIZE) |file| {

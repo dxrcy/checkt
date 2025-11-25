@@ -3,12 +3,12 @@ const Self = @This();
 const std = @import("std");
 
 const output = @import("env/output.zig");
-const State = @import("game/State.zig");
+const Game = @import("game/Game.zig");
 
 ascii: bool,
 small: bool,
 // TODO: Use new union type with port if joining
-role: ?State.Role,
+role: ?Game.Role,
 port: ?u16,
 
 /// Returns `null` if arguments are invalid.
@@ -18,7 +18,7 @@ pub fn parse() ?Self {
 
     var ascii = false;
     var small = false;
-    var role: ?State.Role = null;
+    var role: ?Game.Role = null;
     var port: ?u16 = null;
 
     while (args.next()) |arg| {
