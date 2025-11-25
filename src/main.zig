@@ -460,7 +460,16 @@ fn ping_worker(shared: struct {
         shared.send_channel.send(.{ .ping = {} });
 
         const now = try Instant.now();
-        if (now.since(shared.last_ping.*) > TIMEOUT_NS) {
+        const time_since_last = now.since(shared.last_ping.*);
+
+        if (time_since_last > 2 * time.ns_per_s) {
+            log.warn(
+                "ms since last ping: {}",
+                .{time_since_last / time.ns_per_ms},
+            );
+        }
+
+        if (time_since_last > TIMEOUT_NS) {
             log.warn("remote timeout", .{});
             handlers.exit();
         }
