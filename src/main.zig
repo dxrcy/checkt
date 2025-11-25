@@ -92,7 +92,7 @@ pub fn run() !u8 {
         var ui_mutex = MutexPtr(Ui).new(&ui);
 
         var render_channel = Channel(RenderMessage).empty;
-        var send_channel = Channel(Connection.Message).empty;
+        var send_channel = Channel(Game.Message).empty;
 
         if (!is_multiplayer) {
             send_channel.discard = true;
@@ -192,7 +192,7 @@ fn input_worker(shared: struct {
     state: *MutexPtr(State),
     ui: *MutexPtr(Ui),
     render_channel: *Channel(RenderMessage),
-    send_channel: *Channel(Connection.Message),
+    send_channel: *Channel(Game.Message),
 }) void {
     var previous_state: State = undefined;
 
@@ -324,7 +324,7 @@ fn input_worker(shared: struct {
 
 fn send_worker(shared: struct {
     connection: *Connection,
-    send_channel: *Channel(Connection.Message),
+    send_channel: *Channel(Game.Message),
 }) !void {
     var connection_mutex = MutexPtr(Connection).new(shared.connection);
 
@@ -337,7 +337,7 @@ fn send_worker(shared: struct {
 // NOTE: This is useful for simulating latency without blocking subsequent messages
 fn send_worker_action(
     connection_mutex: *MutexPtr(Connection),
-    message: Connection.Message,
+    message: Game.Message,
 ) void {
     Connection.simulateLatency();
 
@@ -359,7 +359,7 @@ fn recv_worker(shared: struct {
     state: *MutexPtr(State),
     connection: *Connection,
     render_channel: *Channel(RenderMessage),
-    send_channel: *Channel(Connection.Message),
+    send_channel: *Channel(Game.Message),
     last_ping: *Instant,
 }) !void {
     while (true) {
@@ -448,7 +448,7 @@ fn recv_worker(shared: struct {
 }
 
 fn ping_worker(shared: struct {
-    send_channel: *Channel(Connection.Message),
+    send_channel: *Channel(Game.Message),
     last_ping: *Instant,
 }) !void {
     const PING_NS = 400 * time.ns_per_ms;

@@ -4,6 +4,7 @@ const std = @import("std");
 const net = std.net;
 
 const serde = @import("serde.zig");
+const Message = @import("Game.zig").Message;
 
 const START_ADDRESS = net.Address.parseIp4("127.0.0.1", 5100) catch unreachable;
 const PORT_RANGE = 400;
@@ -140,33 +141,6 @@ pub fn simulateLatency() void {
     const time_ms = @mod(random, EXTRA_MS) + MINIMUM_MS;
     std.Thread.sleep(time_ms * std.time.ns_per_ms);
 }
-
-// TODO: Move elsewhere!
-pub const Message = union(enum) {
-    const State = @import("State.zig");
-    const Move = @import("moves.zig").Move;
-
-    ping: void,
-    pong: void,
-
-    position: State.Player,
-    commit_move: CommitMove,
-
-    debug_set_status: State.Status,
-    debug_force_commit_move: CommitMove,
-    debug_kill_remote: void,
-
-    const TakenUpdate = struct {
-        piece: State.Piece,
-        count: u32,
-    };
-
-    const CommitMove = struct {
-        origin: State.Tile,
-        move: Move,
-        // TODO: Add more information, to ensure everything is synced and valid
-    };
-};
 
 fn waitForever() noreturn {
     var mutex = std.Thread.Mutex{};

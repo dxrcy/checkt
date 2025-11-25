@@ -12,6 +12,29 @@ const State = @import("State.zig");
 const Side = State.Side;
 const Tile = State.Tile;
 
+pub const Message = union(enum) {
+    ping: void,
+    pong: void,
+
+    position: State.Player,
+    commit_move: CommitMove,
+
+    debug_set_status: State.Status,
+    debug_force_commit_move: CommitMove,
+    debug_kill_remote: void,
+
+    const TakenUpdate = struct {
+        piece: State.Piece,
+        count: u32,
+    };
+
+    const CommitMove = struct {
+        origin: State.Tile,
+        move: Move,
+        // TODO: Add more information, to ensure everything is synced and valid
+    };
+};
+
 pub fn moveFocus(state: *State, direction: enum { left, right, up, down }) void {
     assert(state.status == .play);
 
@@ -95,7 +118,7 @@ pub fn isMoveValid(
 pub fn selectOrMove(
     state: *State,
     allow_invalid: bool,
-    channel: *Channel(Connection.Message),
+    channel: *Channel(Message),
 ) void {
     const side = switch (state.status) {
         .play => |side| side,
@@ -163,7 +186,7 @@ fn applyAndCommitMove(
     origin: State.Tile,
     move: Move,
     debug_force: bool,
-    channel: *Channel(Connection.Message),
+    channel: *Channel(Message),
 ) void {
     state.board.applyMove(origin, move);
 
