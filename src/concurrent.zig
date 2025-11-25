@@ -123,9 +123,6 @@ pub fn Channel(comptime T: type) type {
 
         pub fn recv(self: *Self) T {
             assert(!self.discard);
-            if (self.discard) {
-                return;
-            }
 
             self.mutex.lock();
             defer self.mutex.unlock();
