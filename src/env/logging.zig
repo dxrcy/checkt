@@ -11,15 +11,7 @@ pub fn logFn(
     comptime fmt: []const u8,
     args: anytype,
 ) void {
-    if (INIT_FAILED) {
-        log.defaultLog(message_level, scope, fmt, args);
-        return;
-    }
-
-    logToFile(message_level, scope, fmt, args) catch |err| {
-        log.defaultLog(.err, .logging, "failed to write to log file: {}", .{err});
-        log.defaultLog(message_level, scope, fmt, args);
-    };
+    logToFile(message_level, scope, fmt, args) catch {};
 }
 
 const LOG_DIR = switch (@import("builtin").os.tag) {
@@ -34,14 +26,8 @@ var INIT_FAILED = false;
 
 /// Idempotent.
 pub fn init() void {
-    tryInit() catch |err| {
+    tryInit() catch {
         INIT_FAILED = true;
-        log.defaultLog(
-            .err,
-            .logging,
-            "failed to initialize log file: {} (switching to default logger)",
-            .{err},
-        );
     };
 }
 
@@ -82,8 +68,9 @@ fn logToFile(
     comptime fmt: []const u8,
     args: anytype,
 ) !void {
-    // Not the fault of `main`
-    assert(!INIT_FAILED);
+    if (INIT_FAILED) {
+        return;
+    }
 
     const writer = LOG_FILE.tryWriter() orelse {
         return error.NotInitialized;

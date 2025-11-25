@@ -26,8 +26,6 @@ pub const std_options = std.Options{
     .logFn = logging.logFn,
 };
 
-// TODO: Use log scopes
-
 pub fn main() !u8 {
     output.stdout.init();
     output.stderr.init();
