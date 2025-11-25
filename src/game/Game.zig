@@ -121,9 +121,12 @@ pub fn handleInput(
 }
 
 pub fn advanceNextTurn(state: *State) void {
-    const play = &state.status.play;
+    const play = switch (state.status) {
+        .play => |*play| play,
+        else => unreachable,
+    };
 
-    if (isWin(state)) |winner| {
+    if (play.board.isWin()) |winner| {
         assert(winner == play.active);
         state.status = .{ .win = .{
             .winner = winner,
@@ -257,25 +260,6 @@ fn applyAndCommitMove(
             .move = move,
         } });
     }
-}
-
-/// Returns which side has won the game, if any.
-fn isWin(state: *const State) ?Side {
-    const board = state.getBoard() orelse {
-        return null;
-    };
-
-    const alive_white = board.isPieceAlive(.{ .kind = .king, .side = .white });
-    const alive_black = board.isPieceAlive(.{ .kind = .king, .side = .black });
-
-    assert(alive_white or alive_black);
-    if (!alive_white) {
-        return .black;
-    }
-    if (!alive_black) {
-        return .white;
-    }
-    return null;
 }
 
 pub fn isMoveValid(
