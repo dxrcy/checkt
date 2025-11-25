@@ -213,8 +213,7 @@ fn input_worker(shared: struct {
 
         previous_state = state.*;
 
-        // TODO: Map input to enum variant, then handle in `Game`
-
+        // TODO: Move to `Game`
         const Input = enum(u8) {
             quit,
 
@@ -257,6 +256,7 @@ fn input_worker(shared: struct {
 
         log.info("input: {}", .{input});
 
+        // TODO: Move to `Game`
         switch (input) {
             .quit => break,
 
@@ -309,15 +309,7 @@ fn input_worker(shared: struct {
 
         shared.render_channel.send(.update);
 
-        // TODO: Move the following to a function
-
-        // TODO: Make this much better please!
-        if (!state.player_local.focus.eql(previous_state.player_local.focus) or
-            (state.player_local.selected == null) != (previous_state.player_local.selected == null) or
-            (state.player_local.selected != null and
-                previous_state.player_local.selected != null and
-                state.player_local.selected.?.eql(previous_state.player_local.selected.?)))
-        {
+        if (!state.player_local.eql(previous_state.player_local)) {
             shared.send_channel.send(.{ .position = state.player_local });
         }
     }

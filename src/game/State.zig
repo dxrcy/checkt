@@ -23,6 +23,16 @@ pub const Role = enum {
 pub const Player = struct {
     focus: Tile,
     selected: ?Tile,
+
+    pub fn eql(lhs: Player, rhs: Player) bool {
+        return lhs.focus.eql(rhs.focus) and
+            optionalEql(lhs.selected, rhs.selected);
+    }
+
+    fn optionalEql(lhs: anytype, rhs: anytype) bool {
+        return (lhs == null and rhs == null) or
+            (lhs != null and rhs != null and lhs.?.eql(rhs.?));
+    }
 };
 
 pub const Status = union(enum) {
