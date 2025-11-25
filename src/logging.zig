@@ -18,7 +18,6 @@ pub fn logFn(
 const BUFFER_SIZE = 64;
 
 const LOG_DIR = "logs";
-const FILENAME = "foo";
 
 var LOG_FILE: ?struct {
     file: fs.File,
@@ -28,6 +27,13 @@ var LOG_FILE: ?struct {
 
 pub fn init() !void {
     assert(LOG_FILE == null);
+
+    // TODO: Make portable (at least for posix)
+    const pid = std.os.linux.getpid();
+    const timestamp = std.time.microTimestamp();
+
+    var filename_buffer: [32]u8 = undefined;
+    const filename = try std.fmt.bufPrint(&filename_buffer, "{}-{}.log", .{ timestamp, pid });
 
     const dir_options: fs.Dir.OpenOptions = .{};
     const dir = fs.cwd().openDir(LOG_DIR, dir_options) catch |err| switch (err) {
@@ -42,7 +48,7 @@ pub fn init() !void {
         .lock = .exclusive,
         .lock_nonblocking = true,
     };
-    const file = try dir.createFile(FILENAME, file_flags);
+    const file = try dir.createFile(filename, file_flags);
 
     LOG_FILE = .{
         .file = file,
