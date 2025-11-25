@@ -85,6 +85,8 @@ fn logToFile(
     const level_txt = comptime message_level.asText();
     const prefix = if (scope == .default) ": " else "(" ++ @tagName(scope) ++ "): ";
 
+    // TODO: Write timestamp
+
     nosuspend {
         try writer.interface.print(
             level_txt ++ prefix ++ fmt ++ "\n",

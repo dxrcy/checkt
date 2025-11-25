@@ -27,6 +27,8 @@ pub const std_options = std.Options{
     .logFn = logging.logFn,
 };
 
+// TODO: Use log scopes
+
 pub fn main() !u8 {
     try logging.init();
 
@@ -34,16 +36,30 @@ pub fn main() !u8 {
         return 1;
     };
 
+    log.info("role = {?}", .{args.role});
+
     var connection = if (args.role) |role| switch (role) {
         .host => try Connection.newServer(),
         .join => Connection.newClient(args.port orelse unreachable),
     } else Connection.newSingle();
+
     if (args.role == .host) {
+        // TODO: Print to stdout also
         log.info("hosting on port {}.", .{connection.port});
-        log.info("waiting for client to join...", .{});
+        log.info("waiting for client to join", .{});
+    } else if (args.role == .join) {
+        // TODO: Print to stdout also
+        log.info("joining server", .{});
     }
+
     try connection.init();
     defer connection.deinit();
+
+    if (args.role != null) {
+        log.info("remote connected", .{});
+    }
+
+    // TODO: Initialize stdout writer somewhere in main, not lazily
 
     var ui = Ui.new(args.ascii, args.small);
     try ui.enter();
@@ -57,6 +73,7 @@ pub fn main() !u8 {
 
     var state = State.new(args.role);
 
+    log.info("starting game loop", .{});
     {
         var state_mutex = MutexPtr(State).new(&state);
         var ui_mutex = MutexPtr(Ui).new(&ui);
@@ -111,6 +128,7 @@ pub fn main() !u8 {
             }
         }
     }
+    log.info("end of game loop", .{});
 
     // Don't `defer`, so that error can be returned if possible
     try ui.exit();
@@ -219,6 +237,8 @@ fn input_worker(shared: struct {
             else => continue,
         };
 
+        log.info("input: {}", .{input});
+
         switch (input) {
             .quit => break,
 
@@ -297,12 +317,17 @@ fn send_worker(shared: struct {
     }
 }
 
+// TODO: Replace this scuffed method with an event loop (GENIOUS!)
 // NOTE: This is useful for simulating latency without blocking subsequent messages
 fn send_worker_action(
     connection_mutex: *MutexPtr(Connection),
     message: Connection.Message,
 ) void {
     Connection.simulateLatency();
+
+    if (message != .ping and message != .pong) {
+        log.info("send: {t}", .{message});
+    }
 
     const connection = connection_mutex.lock();
     defer connection_mutex.unlock();
@@ -324,21 +349,28 @@ fn recv_worker(shared: struct {
     while (true) {
         const message = shared.connection.recv() catch |err| switch (err) {
             error.Malformed => {
-                // TODO: Handle
+                log.warn("malformed message", .{});
                 continue;
             },
             error.ReadFailed => {
-                // TODO: Handle
+                log.err("read failed", .{});
                 return;
             },
             error.EndOfStream => {
-                // TODO: Handle
+                log.err("unexpected end of stream", .{});
                 return;
             },
         };
 
+        if (message != .ping and message != .pong) {
+            log.info("recv: {t}", .{message});
+        }
+
         const state = shared.state.lock();
         defer shared.state.unlock();
+
+        // TODO: Move the following to a new function -> !void
+        // And handle illegal move here (log)
 
         switch (message) {
             .ping => {
@@ -354,8 +386,8 @@ fn recv_worker(shared: struct {
                 if (!position.focus.isInBounds() or
                     (position.selected != null and !position.selected.?.isInBounds()))
                 {
-                    // TODO: Handle
-                    return error.IllegalMessage;
+                    log.warn("illegal message: {}", .{message});
+                    continue;
                 }
 
                 state.player_remote = position;
@@ -369,8 +401,8 @@ fn recv_worker(shared: struct {
                     commit_move.origin,
                     commit_move.move,
                 )) {
-                    // TODO: Handle
-                    return error.IllegalMessage;
+                    log.warn("illegal message: {}", .{message});
+                    continue;
                 }
 
                 state.board.applyMove(commit_move.origin, commit_move.move);
@@ -392,7 +424,8 @@ fn recv_worker(shared: struct {
             },
 
             .debug_kill_remote => {
-                handlers.exit("killed by remote", .{});
+                log.warn("killed by remote", .{});
+                handlers.exit();
             },
         }
     }
@@ -411,7 +444,8 @@ fn ping_worker(shared: struct {
 
         const now = try Instant.now();
         if (now.since(shared.last_ping.*) > TIMEOUT_NS) {
-            handlers.exit("remote timeout", .{});
+            log.warn("remote timeout", .{});
+            handlers.exit();
         }
     }
 }

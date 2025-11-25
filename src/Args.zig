@@ -20,6 +20,8 @@ pub fn parse() ?Self {
     var role: ?State.Role = null;
     var port: ?u16 = null;
 
+    // TODO: Use stderr writer, not std.log
+
     while (args.next()) |arg| {
         if (std.mem.eql(u8, arg, "--ascii")) {
             ascii = true;
