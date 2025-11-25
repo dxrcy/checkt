@@ -31,7 +31,7 @@ pub const std_options = std.Options{
 pub fn main() !u8 {
     output.stdout.init();
     output.stderr.init();
-    try logging.init();
+    logging.init();
 
     handlers.THREAD_NAME = "main";
 

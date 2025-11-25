@@ -11,8 +11,13 @@ pub fn logFn(
     comptime fmt: []const u8,
     args: anytype,
 ) void {
+    if (INIT_FAILED) {
+        log.defaultLog(message_level, scope, fmt, args);
+        return;
+    }
+
     logToFile(message_level, scope, fmt, args) catch |err| {
-        log.defaultLog(.warn, .default, "failed to write to log file: {}", .{err});
+        log.defaultLog(.err, .default, "failed to write to log file: {}", .{err});
         log.defaultLog(message_level, scope, fmt, args);
     };
 }
@@ -24,11 +29,20 @@ const LOG_DIR = switch (@import("builtin").os.tag) {
 };
 
 var LOG_FILE = Output(64).uninit;
+/// `true` if already tried `init` log file, but failed.
+var INIT_FAILED = false;
 
-// TODO: If init failed, just warn and use default logger
+pub fn init() void {
+    tryInit() catch |err| {
+        INIT_FAILED = true;
+        log.defaultLog(.err, .default, "failed to initialize log file: {}", .{err});
+        log.defaultLog(.warn, .default, "switching to default logger", .{});
+    };
+}
 
-pub fn init() !void {
+fn tryInit() !void {
     assert(LOG_FILE.inner == null);
+    assert(!INIT_FAILED);
 
     // TODO: Make portable (at least for posix)
     const pid = std.os.linux.getpid();
@@ -61,6 +75,8 @@ fn logToFile(
     comptime fmt: []const u8,
     args: anytype,
 ) !void {
+    assert(!INIT_FAILED);
+
     const writer = LOG_FILE.tryWriter() orelse {
         return error.NotInitialized;
     };
