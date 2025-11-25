@@ -11,7 +11,6 @@ pub const globals = struct {
     pub var RENDER_CHANNEL: ?*Channel(RenderMessage) = null;
 };
 
-// TODO: Set for main thread
 pub threadlocal var THREAD_NAME: ?[]const u8 = null;
 
 pub fn exit() noreturn {

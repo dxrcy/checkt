@@ -34,6 +34,8 @@ pub fn main() !u8 {
     output.stderr.init();
     try logging.init();
 
+    handlers.THREAD_NAME = "main";
+
     const exit = run();
 
     output.stdout.flush();
