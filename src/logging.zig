@@ -17,7 +17,13 @@ pub fn logFn(
 
 const BUFFER_SIZE = 64;
 
-const LOG_DIR = "logs";
+const LOG_DIR = switch (@import("builtin").os.tag) {
+    // TODO: Support more systems obviously
+    .linux => "/tmp/checkt",
+    else => @compileError("unsupported system"),
+};
+
+// TODO: If init failed, just warn and use default logger
 
 var LOG_FILE: ?struct {
     file: fs.File,
