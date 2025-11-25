@@ -12,13 +12,21 @@ const Terminal = @import("Terminal.zig");
 const Attributes = Terminal.Attributes;
 const Ui = @import("Ui.zig");
 
-// TODO: Use larger size
 pub const HEIGHT = (Board.SIZE + 2) * Ui.tile_size.HEIGHT;
 pub const WIDTH = Board.SIZE * Ui.tile_size.WIDTH;
 
 cells: [HEIGHT * WIDTH]Cell,
 
 const Char = u21;
+
+pub const Position = struct {
+    y: usize,
+    x: usize,
+
+    pub fn isInBounds(self: Position) bool {
+        return self.y < HEIGHT and self.x < WIDTH;
+    }
+};
 
 pub fn new() Self {
     return Self{
@@ -32,15 +40,14 @@ pub fn clear(self: *Self) void {
     }
 }
 
-// TODO: Use container for y,x
-pub fn set(self: *Self, y: usize, x: usize, options: Cell.Options) void {
-    assert(x < WIDTH and y < HEIGHT);
-    self.cells[y * WIDTH + x].apply(options);
+pub fn set(self: *Self, position: Position, options: Cell.Options) void {
+    assert(position.isInBounds());
+    self.cells[position.y * WIDTH + position.x].apply(options);
 }
 
-pub fn get(self: *Self, y: usize, x: usize) *Cell {
-    assert(x < WIDTH and y < HEIGHT);
-    return &self.cells[y * WIDTH + x];
+pub fn get(self: *Self, position: Position) *Cell {
+    assert(position.isInBounds());
+    return &self.cells[position.y * WIDTH + position.x];
 }
 
 pub const Cell = struct {

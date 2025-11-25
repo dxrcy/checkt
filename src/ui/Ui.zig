@@ -12,6 +12,7 @@ const Tile = State.Tile;
 
 const Frame = @import("Frame.zig");
 const Cell = Frame.Cell;
+const Position = Frame.Position;
 const Terminal = @import("Terminal.zig");
 const Color = Terminal.Attributes.Color;
 const text = @import("text.zig");
@@ -153,7 +154,7 @@ pub fn render(self: *Self, state: *const State) void {
             self.renderPiece(piece, tile, .{});
 
             if (count > 1) {
-                const position: struct { x: usize, y: usize } = if (self.small)
+                const position: Position = if (self.small)
                     .{
                         .x = tile.file * tile_size.WIDTH_SMALL + tile_size.PADDING_LEFT_SMALL + 2,
                         .y = tile.rank * tile_size.HEIGHT_SMALL + 1,
@@ -166,8 +167,7 @@ pub fn render(self: *Self, state: *const State) void {
 
                 self.renderDecimalInt(
                     count,
-                    position.y,
-                    position.x,
+                    position,
                     .{
                         .fg = colors.HIGHLIGHT,
                         .bold = true,
@@ -200,8 +200,10 @@ pub fn render(self: *Self, state: *const State) void {
                     "game",
                     "over",
                 },
-                if (self.small) 6 else 14,
-                if (self.small) 8 else 20,
+                .{
+                    .y = if (self.small) 6 else 14,
+                    .x = if (self.small) 8 else 20,
+                },
             );
 
             const string = if (side == .white)
@@ -216,8 +218,10 @@ pub fn render(self: *Self, state: *const State) void {
 
             self.renderTextLineNormal(
                 string,
-                if (self.small) 18 else 26,
-                (Board.SIZE * (tile_width) - string.len) / 2,
+                .{
+                    .y = if (self.small) 18 else 26,
+                    .x = (Board.SIZE * (tile_width) - string.len) / 2,
+                },
                 .{
                     .bold = true,
                 },
@@ -362,16 +366,17 @@ pub fn render(self: *Self, state: *const State) void {
 fn renderTextLineNormal(
     self: *Self,
     string: []const u8,
-    origin_y: usize,
-    origin_x: usize,
+    origin: Position,
     options: Cell.Options,
 ) void {
     var frame = self.getForeFrame();
 
     for (string, 0..) |char, x| {
         frame.set(
-            origin_y,
-            origin_x + x,
+            .{
+                .y = origin.y,
+                .x = origin.x + x,
+            },
             (Cell.Options{
                 .char = char,
                 .fg = .white,
@@ -384,14 +389,15 @@ fn renderTextLineNormal(
 fn renderTextLarge(
     self: *Self,
     lines: []const []const u8,
-    origin_y: usize,
-    origin_x: usize,
+    origin: Position,
 ) void {
     for (lines, 0..) |string, row| {
         self.renderTextLineLine(
             string,
-            origin_y + row * (text.HEIGHT + text.GAP_Y),
-            origin_x,
+            .{
+                .y = origin.y + row * (text.HEIGHT + text.GAP_Y),
+                .x = origin.x,
+            },
         );
     }
 }
@@ -399,8 +405,7 @@ fn renderTextLarge(
 fn renderTextLineLine(
     self: *Self,
     string: []const u8,
-    origin_y: usize,
-    origin_x: usize,
+    origin: Position,
 ) void {
     var frame = self.getForeFrame();
 
@@ -413,8 +418,10 @@ fn renderTextLineLine(
                 const char = text.translateSymbol(symbol, self.ascii);
 
                 frame.set(
-                    origin_y + y,
-                    origin_x + i * (text.WIDTH + text.GAP_X) + x,
+                    .{
+                        .y = origin.y + y,
+                        .x = origin.x + i * (text.WIDTH + text.GAP_X) + x,
+                    },
                     .{
                         .char = char,
                         .fg = .white,
@@ -428,8 +435,7 @@ fn renderTextLineLine(
 fn renderDecimalInt(
     self: *Self,
     value: anytype,
-    y: usize,
-    x: usize,
+    position: Position,
     options: Cell.Options,
 ) void {
     var frame = self.getForeFrame();
@@ -439,7 +445,7 @@ fn renderDecimalInt(
     else
         '*';
 
-    frame.set(y, x, options.join(.{
+    frame.set(position, options.join(.{
         .char = char,
     }));
 }
@@ -449,8 +455,10 @@ fn renderPiece(self: *Self, piece: Piece, tile: Tile, options: Cell.Options) voi
 
     if (self.small) {
         frame.set(
-            tile.rank * tile_size.HEIGHT_SMALL + tile_size.PADDING_TOP_SMALL,
-            tile.file * tile_size.WIDTH_SMALL + tile_size.PADDING_LEFT_SMALL,
+            .{
+                .y = tile.rank * tile_size.HEIGHT_SMALL + tile_size.PADDING_TOP_SMALL,
+                .x = tile.file * tile_size.WIDTH_SMALL + tile_size.PADDING_LEFT_SMALL,
+            },
             (Cell.Options{
                 .char = piece.char(),
                 .fg = getPieceColor(piece.side),
@@ -465,8 +473,10 @@ fn renderPiece(self: *Self, piece: Piece, tile: Tile, options: Cell.Options) voi
     for (0..Piece.HEIGHT) |y| {
         for (0..Piece.WIDTH) |x| {
             frame.set(
-                tile.rank * tile_size.HEIGHT + y + tile_size.PADDING_TOP,
-                tile.file * tile_size.WIDTH + x + tile_size.PADDING_LEFT,
+                .{
+                    .y = tile.rank * tile_size.HEIGHT + y + tile_size.PADDING_TOP,
+                    .x = tile.file * tile_size.WIDTH + x + tile_size.PADDING_LEFT,
+                },
                 (Cell.Options{
                     .char = string[y * Piece.WIDTH + x],
                     .fg = getPieceColor(piece.side),
@@ -511,7 +521,10 @@ fn renderRectSolid(
 
     for (0..rect.h) |y| {
         for (0..rect.w) |x| {
-            frame.set(rect.y + y, rect.x + x, options);
+            frame.set(.{
+                .y = rect.y + y,
+                .x = rect.x + x,
+            }, options);
         }
     }
 }
@@ -525,26 +538,34 @@ fn renderRectHighlight(
 
     for (1..rect.w - 1) |x| {
         frame.set(
-            rect.y,
-            rect.x + x,
+            .{
+                .y = rect.y,
+                .x = rect.x + x,
+            },
             (Cell.Options{ .char = self.getEdge(.top) }).join(options),
         );
         frame.set(
-            rect.y + rect.h - 1,
-            rect.x + x,
+            .{
+                .y = rect.y + rect.h - 1,
+                .x = rect.x + x,
+            },
             (Cell.Options{ .char = self.getEdge(.bottom) }).join(options),
         );
     }
 
     for (1..rect.h - 1) |y| {
         frame.set(
-            rect.y + y,
-            rect.x,
+            .{
+                .y = rect.y + y,
+                .x = rect.x,
+            },
             (Cell.Options{ .char = self.getEdge(.left) }).join(options),
         );
         frame.set(
-            rect.y + y,
-            rect.x + rect.w - 1,
+            .{
+                .y = rect.y + y,
+                .x = rect.x + rect.w - 1,
+            },
             (Cell.Options{ .char = self.getEdge(.right) }).join(options),
         );
     }
@@ -561,8 +582,10 @@ fn renderRectHighlight(
         const x = corner[1];
         const edge = corner[2];
         frame.set(
-            rect.y + y * (rect.h - 1),
-            rect.x + x * (rect.w - 1),
+            .{
+                .y = rect.y + y * (rect.h - 1),
+                .x = rect.x + x * (rect.w - 1),
+            },
             (Cell.Options{ .char = self.getEdge(edge) }).join(options),
         );
     }
@@ -578,8 +601,8 @@ pub fn draw(self: *Self) void {
 
     for (0..Frame.HEIGHT) |y| {
         for (0..Frame.WIDTH) |x| {
-            const cell_fore = self.getForeFrame().get(y, x);
-            const cell_back = self.getBackFrame().get(y, x);
+            const cell_fore = self.getForeFrame().get(.{ .y = y, .x = x });
+            const cell_back = self.getBackFrame().get(.{ .y = y, .x = x });
 
             if (cell_back.eql(cell_fore.*)) {
                 continue;
