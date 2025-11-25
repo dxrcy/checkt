@@ -156,7 +156,6 @@ pub const RenderEvent = enum {
     update,
 };
 
-// TODO: Rename shared mutex fields *_mutex ? and elsewhere
 fn renderWorker(shared: struct {
     game: *MutexPtr(Game),
     ui: *MutexPtr(Ui),

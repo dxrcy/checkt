@@ -25,6 +25,7 @@ pub const Role = enum {
 };
 
 pub const State = union(enum) {
+    start: struct {},
     play: struct {
         active: Side,
         board: Board,
@@ -40,6 +41,7 @@ pub const State = union(enum) {
         return switch (self.*) {
             .play => |*play| &play.board,
             .win => |*win| &win.board,
+            else => null,
         };
     }
 
@@ -120,12 +122,12 @@ pub const Input = enum(u8) {
 };
 
 pub fn new(role: ?Role) Self {
-    var self = Self{
+    return Self{
         .role = role,
-        .state = undefined,
+        .state = .{
+            .start = .{},
+        },
     };
-    self.resetGame();
-    return self;
 }
 
 pub fn resetGame(self: *Self) void {
@@ -164,16 +166,27 @@ pub fn handleInput(
         .up => if (self.state == .play) moveFocus(self, .up),
         .down => if (self.state == .play) moveFocus(self, .down),
 
-        .confirm => if (self.state == .play) {
-            selectOrMove(self, false, channel);
+        .confirm => switch (self.state) {
+            .start => {
+                self.resetGame();
+            },
+            .play => {
+                selectOrMove(self, false, channel);
+            },
+            .win => {
+                self.state = .{ .start = .{} };
+            },
         },
         .cancel => switch (self.state) {
-            .play => |*play| play.player_local.selected = null,
+            .play => |*play| {
+                play.player_local.selected = null;
+            },
             else => {},
         },
 
-        .reset => if (self.state == .win) {
-            self.resetGame();
+        .reset => {
+            // TODO: Add confirm screen
+            self.state = .{ .start = .{} };
         },
 
         .debug_switch_side => switch (self.state) {

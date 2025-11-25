@@ -159,11 +159,11 @@ pub fn render(self: *Self, game: *const Game) void {
 
                 if (count > 1) {
                     const position: Position = if (self.small) .{
-                        .x = tile.file * tile_size.WIDTH_SMALL + tile_size.PADDING_LEFT_SMALL + 2,
                         .y = tile.rank * tile_size.HEIGHT_SMALL + 1,
+                        .x = tile.file * tile_size.WIDTH_SMALL + tile_size.PADDING_LEFT_SMALL + 2,
                     } else .{
-                        .x = tile.file * tile_size.WIDTH + tile_size.PADDING_LEFT + Piece.WIDTH + 1,
                         .y = tile.rank * tile_size.HEIGHT + 1,
+                        .x = tile.file * tile_size.WIDTH + tile_size.PADDING_LEFT + Piece.WIDTH + 1,
                     };
 
                     self.renderDecimalInt(
@@ -196,6 +196,47 @@ pub fn render(self: *Self, game: *const Game) void {
     }
 
     switch (game.state) {
+        .start => {
+            // Empty board
+            for (0..Board.SIZE) |rank| {
+                for (0..Board.SIZE) |file| {
+                    const tile = Tile{ .rank = @intCast(rank), .file = @intCast(file) };
+                    self.renderRectSolid(self.getTileRect(tile), .{
+                        .char = ' ',
+                        .bg = getTileColor(tile, false),
+                    });
+                }
+            }
+
+            self.renderTextLarge(
+                &[_][]const u8{
+                    "chess",
+                },
+                if (self.small)
+                    .{ .y = 8, .x = 5 }
+                else
+                    .{ .y = 16, .x = 17 },
+            );
+
+            // TODO: Create function to render text centered
+
+            const string = "Press SPACE to start";
+
+            const tile_width = if (self.small)
+                tile_size.WIDTH_SMALL
+            else
+                tile_size.WIDTH;
+
+            self.renderTextLineNormal(
+                string,
+                .{
+                    .y = if (self.small) 15 else 23,
+                    .x = (Board.SIZE * (tile_width) - string.len) / 2,
+                },
+                .{ .bold = true },
+            );
+        },
+
         .win => |win| {
             self.renderTextLarge(
                 &[_][]const u8{
@@ -205,7 +246,7 @@ pub fn render(self: *Self, game: *const Game) void {
                 if (self.small)
                     .{ .y = 6, .x = 8 }
                 else
-                    .{ .x = 14, .y = 20 },
+                    .{ .y = 14, .x = 20 },
             );
 
             // TODO: bruh
