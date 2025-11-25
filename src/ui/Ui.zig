@@ -4,12 +4,11 @@ const std = @import("std");
 const assert = std.debug.assert;
 const posix = std.posix;
 
-const State = @import("../game/State.zig");
 const Game = @import("../game/Game.zig");
-const Board = State.Board;
+const Board = Game.Board;
 const Piece = Board.Piece;
-const Side = State.Side;
-const Tile = State.Tile;
+const Side = Game.Side;
+const Tile = Game.Tile;
 
 const Frame = @import("Frame.zig");
 const Cell = Frame.Cell;
@@ -475,7 +474,7 @@ fn renderPiece(self: *Self, piece: Piece, tile: Tile, options: Cell.Options) voi
 fn getTileColor(tile: Tile, flip: bool) Color {
     return if (tile.isEven() != flip) colors.TILE_WHITE else colors.TILE_BLACK;
 }
-fn getPieceColor(side: State.Side) Color {
+fn getPieceColor(side: Side) Color {
     return if (side == .white) colors.PIECE_WHITE else colors.PIECE_BLACK;
 }
 

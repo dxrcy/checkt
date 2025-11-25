@@ -10,12 +10,10 @@ const MutexPtr = concurrent.MutexPtr;
 const Connection = @import("../connection/Connection.zig");
 const Ui = @import("../ui/Ui.zig");
 
+pub const Board = @import("Board.zig");
+pub const Piece = Board.Piece;
+pub const Tile = Board.Tile;
 const Move = @import("moves.zig").Move;
-pub const State = @import("State.zig");
-const Status = State.Status;
-const Board = State.Board;
-const Side = State.Side;
-const Tile = State.Tile;
 
 // TODO: Use 3-variant enum?
 role: ?Role,
@@ -27,11 +25,65 @@ pub const Role = enum {
     join,
 };
 
+// TODO: RENAME!!!
+pub const Status = union(enum) {
+    play: struct {
+        active: Side,
+        board: Board,
+        player_local: Player,
+        player_remote: ?Player,
+    },
+    win: struct {
+        winner: Side,
+        board: Board,
+    },
+
+    pub fn getBoard(self: *const Status) ?*const Board {
+        return switch (self.*) {
+            .play => |*play| &play.board,
+            .win => |*win| &win.board,
+        };
+    }
+
+    pub fn getPlayerLocal(self: *const Status) ?*const Player {
+        return switch (self.*) {
+            .play => |*play| &play.player_local,
+            else => null,
+        };
+    }
+};
+
+pub const Side = enum(u1) {
+    white = 0,
+    black = 1,
+
+    pub const COUNT = 2;
+
+    pub fn flip(self: Side) Side {
+        return if (self == .white) .black else .white;
+    }
+};
+
+pub const Player = struct {
+    focus: Tile,
+    selected: ?Tile,
+
+    pub fn eql(lhs: Player, rhs: Player) bool {
+        return lhs.focus.eql(rhs.focus) and
+            optionalEql(lhs.selected, rhs.selected);
+    }
+
+    fn optionalEql(lhs: anytype, rhs: anytype) bool {
+        return (lhs == null and rhs == null) or
+            (lhs != null and rhs != null and lhs.?.eql(rhs.?));
+    }
+};
+
 pub const Message = union(enum) {
     ping: void,
     pong: void,
 
-    position: State.Player,
+    position: Player,
     commit_move: CommitMove,
 
     // TODO: Re-add
@@ -40,12 +92,12 @@ pub const Message = union(enum) {
     debug_kill_remote: void,
 
     const TakenUpdate = struct {
-        piece: State.Piece,
+        piece: Piece,
         count: u32,
     };
 
     const CommitMove = struct {
-        origin: State.Tile,
+        origin: Tile,
         move: Move,
         // TODO: Add more information, to ensure everything is synced and valid
     };

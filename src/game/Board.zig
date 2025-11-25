@@ -8,8 +8,8 @@ const serde = @import("../connection/serde.zig");
 const moves = @import("moves.zig");
 const AvailableMoves = moves.AvailableMoves;
 const Move = moves.Move;
-const State = @import("State.zig");
-const Side = State.Side;
+const Game = @import("Game.zig");
+const Side = Game.Side;
 
 // TODO: Rename
 const TileIndex = u16;
