@@ -2,6 +2,44 @@ const std = @import("std");
 const assert = std.debug.assert;
 const fs = std.fs;
 
+pub const stdout = struct {
+    var OUTPUT = Output(1024).uninit;
+
+    pub fn init() void {
+        OUTPUT.init(fs.File.stdout());
+    }
+
+    pub fn print(comptime fmt: []const u8, args: anytype) void {
+        OUTPUT.writer().interface.print(fmt, args) catch |err| {
+            std.debug.panic("failed to write to stdout: {t}", .{err});
+        };
+    }
+    pub fn flush() void {
+        OUTPUT.writer().interface.flush() catch |err| {
+            std.debug.panic("failed to flush stdout: {t}", .{err});
+        };
+    }
+};
+
+pub const stderr = struct {
+    var OUTPUT = Output(1024).uninit;
+
+    pub fn init() void {
+        OUTPUT.init(fs.File.stdout());
+    }
+
+    pub fn print(comptime fmt: []const u8, args: anytype) void {
+        OUTPUT.writer().interface.print(fmt, args) catch |err| {
+            std.debug.panic("failed to write to stderr: {t}", .{err});
+        };
+    }
+    pub fn flush() void {
+        OUTPUT.writer().interface.flush() catch |err| {
+            std.debug.panic("failed to flush stderr: {t}", .{err});
+        };
+    }
+};
+
 pub fn Output(buffer_size: usize) type {
     return struct {
         const Self = @This();

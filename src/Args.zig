@@ -1,9 +1,9 @@
 const Self = @This();
 
 const std = @import("std");
-const log = std.log;
 
 const State = @import("State.zig");
+const output = @import("output.zig");
 
 ascii: bool,
 small: bool,
@@ -11,6 +11,7 @@ small: bool,
 role: ?State.Role,
 port: ?u16,
 
+/// Returns `null` if arguments are invalid.
 pub fn parse() ?Self {
     var args = std.process.args();
     _ = args.next();
@@ -20,8 +21,6 @@ pub fn parse() ?Self {
     var role: ?State.Role = null;
     var port: ?u16 = null;
 
-    // TODO: Use stderr writer, not std.log
-
     while (args.next()) |arg| {
         if (std.mem.eql(u8, arg, "--ascii")) {
             ascii = true;
@@ -29,27 +28,27 @@ pub fn parse() ?Self {
             small = true;
         } else if (std.mem.eql(u8, arg, "host")) {
             if (role != null) {
-                log.err("invalid argument", .{});
+                output.stderr.print("invalid argument\n", .{});
                 return null;
             }
             role = .host;
         } else if (std.mem.eql(u8, arg, "join")) {
             if (role != null) {
-                log.err("invalid argument", .{});
+                output.stderr.print("invalid argument\n", .{});
                 return null;
             }
             role = .join;
 
             const port_str = args.next() orelse {
-                log.err("missing value", .{});
+                output.stderr.print("missing value\n", .{});
                 return null;
             };
             port = std.fmt.parseInt(u16, port_str, 10) catch {
-                log.err("invalid value", .{});
+                output.stderr.print("invalid value\n", .{});
                 return null;
             };
         } else {
-            log.err("invalid argument", .{});
+            output.stderr.print("invalid argument\n", .{});
             return null;
         }
     }

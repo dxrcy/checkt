@@ -12,6 +12,7 @@ const Ui = @import("Ui.zig");
 // TODO: Rename
 const handlers = @import("handlers.zig");
 const logging = @import("logging.zig");
+const output = @import("output.zig");
 
 const State = @import("State.zig");
 const Tile = State.Tile;
@@ -29,8 +30,19 @@ pub const std_options = std.Options{
 
 // TODO: Use log scopes
 
+// TODO: Move?
+
 pub fn main() !u8 {
+    output.stdout.init();
+    output.stderr.init();
     try logging.init();
+
+    // FIXME: DO NOT DO THIS
+    // Wrap the rest of main in a new function
+    defer {
+        output.stdout.flush();
+        output.stderr.flush();
+    }
 
     const args = Args.parse() orelse {
         return 1;

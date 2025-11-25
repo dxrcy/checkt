@@ -5,23 +5,7 @@ const assert = std.debug.assert;
 const panic = std.debug.panic;
 const posix = std.posix;
 
-const stdout = struct {
-    const fs = std.fs;
-
-    const BUFFER_SIZE = 1024;
-
-    const FILE = fs.File.stdout();
-    var WRITER: ?fs.File.Writer = null;
-    var BUFFER: [BUFFER_SIZE]u8 = undefined;
-
-    /// Lazily initializes global writer.
-    pub fn writer() *fs.File.Writer {
-        if (WRITER == null) {
-            WRITER = FILE.writer(&BUFFER);
-        }
-        return &(WRITER orelse unreachable);
-    }
-};
+const output = @import("output.zig");
 
 original_termios: ?posix.termios,
 /// Most methods do **not** modify this field. Eg. [`print`].
@@ -113,16 +97,12 @@ pub fn setTermios(self: *Self, termios: posix.termios) !void {
 
 pub fn print(self: *Self, comptime fmt: []const u8, args: anytype) void {
     _ = self;
-    stdout.writer().interface.print(fmt, args) catch |err| {
-        panic("failed to write to stdout: {}", .{err});
-    };
+    output.stdout.print(fmt, args);
 }
 
 pub fn flush(self: *Self) void {
     _ = self;
-    stdout.writer().interface.flush() catch |err| {
-        panic("failed to flush stdout: {}", .{err});
-    };
+    output.stdout.flush();
 }
 
 pub fn setAlternativeScreen(self: *Self, state: enum { enter, exit }) void {
