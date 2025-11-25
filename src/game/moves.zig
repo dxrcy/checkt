@@ -159,15 +159,15 @@ pub const AvailableMoves = struct {
             return null;
         }
 
-        // TODO: Extract as method?
-        const move_alt = if (rule.move_alt) |move_alt| blk: {
-            break :blk Move.MoveAlt{
+        const move_alt = if (rule.move_alt) |move_alt|
+            Move.MoveAlt{
                 .origin = move_alt.origin.applyTo(self.origin, piece) orelse
                     unreachable,
                 .destination = move_alt.destination.applyTo(self.origin, piece) orelse
                     unreachable,
-            };
-        } else null;
+            }
+        else
+            null;
 
         return Move{
             .destination = destination,
@@ -386,8 +386,6 @@ pub const Requirement = struct {
 
 /// An offset which is dependant on the piece's attributes (eg. color determines
 /// direction).
-// TODO: (DO LATER) Depending on how many variants are added, this abstraction
-// could possibly be removed or improved somehow.
 pub const Offset = union(enum) {
     absolute: AbsoluteOffset,
     advance: AbsoluteOffset,
