@@ -181,6 +181,20 @@ pub fn getAvailableMoves(board: *const Self, origin: Tile) AvailableMoves {
     return AvailableMoves.new(board, origin, false);
 }
 
+pub fn getMatchingAvailableMove(
+    self: *const Self,
+    origin: Tile,
+    destination: Tile,
+) ?Move {
+    var available_moves = self.getAvailableMoves(origin);
+    while (available_moves.next()) |available| {
+        if (available.destination.eql(destination)) {
+            return available;
+        }
+    }
+    return null;
+}
+
 pub fn getKing(self: *const Self, side: Side) Tile {
     return self.getTileOfFirst(.{
         .kind = .king,

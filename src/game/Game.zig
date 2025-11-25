@@ -23,7 +23,8 @@ pub const Message = union(enum) {
     position: State.Player,
     commit_move: CommitMove,
 
-    debug_set_status: State.Status,
+    // TODO: Re-add
+    // debug_set_status: State.Status,
     debug_force_commit_move: CommitMove,
     debug_kill_remote: void,
 
@@ -77,8 +78,9 @@ pub fn handleInput(
         .confirm => if (state.status == .play) {
             selectOrMove(state, false, channel);
         },
-        .cancel => if (state.status == .play) {
-            state.player_local.selected = null;
+        .cancel => switch (state.status) {
+            .play => |*play| play.player_local.selected = null,
+            else => {},
         },
 
         .reset => if (state.status == .win) {
@@ -86,12 +88,13 @@ pub fn handleInput(
         },
 
         .debug_switch_side => switch (state.status) {
-            .play => |*side| {
-                side.* = side.flip();
-                channel.send(.{ .debug_set_status = state.status });
+            .play => |*play| {
+                play.active = play.active.flip();
+                // TODO:
+                // channel.send(.{ .debug_set_status = state.status });
 
-                state.player_local.selected = null;
-                if (state.player_remote) |*player_remote| {
+                play.player_local.selected = null;
+                if (play.player_remote) |*player_remote| {
                     player_remote.selected = null;
                 }
             },
@@ -118,20 +121,25 @@ pub fn handleInput(
 }
 
 pub fn advanceNextTurn(state: *State) void {
-    const current = state.status.play;
+    const play = &state.status.play;
 
-    if (isWin(state)) |winning_side| {
-        assert(winning_side == current);
-        state.status = .{ .win = winning_side };
+    if (isWin(state)) |winner| {
+        assert(winner == play.active);
+        state.status = .{ .win = .{
+            .winner = winner,
+            .board = play.board,
+        } };
     } else {
-        state.status = .{ .play = current.flip() };
+        play.active = play.active.flip();
     }
 }
 
 fn moveFocus(state: *State, direction: enum { left, right, up, down }) void {
-    assert(state.status == .play);
+    const player = switch (state.status) {
+        .play => |*play| &play.player_local,
+        else => unreachable,
+    };
 
-    const player = &state.player_local;
     const tile = &player.focus;
 
     switch (direction) {
@@ -163,8 +171,8 @@ fn selectOrMove(
     allow_invalid: bool,
     channel: *Channel(Message),
 ) void {
-    const side = switch (state.status) {
-        .play => |side| side,
+    const play = switch (state.status) {
+        .play => |*play| play,
         else => unreachable,
     };
 
@@ -172,12 +180,12 @@ fn selectOrMove(
         return;
     }
 
-    const player = &state.player_local;
+    const player = &play.player_local;
 
     const selected = player.selected orelse {
-        const piece = state.board.get(player.focus);
+        const piece = play.board.get(player.focus);
         if (piece != null and
-            piece.?.side == side)
+            piece.?.side == play.active)
         {
             player.selected = player.focus;
         }
@@ -189,14 +197,14 @@ fn selectOrMove(
         return;
     }
 
-    const piece = state.board.get(selected);
-    assert(piece.?.side == side);
+    const piece = play.board.get(selected);
+    assert(piece.?.side == play.active);
 
     // DEBUG
     // TODO: Merge these branches
     if (allow_invalid) {
-        if (state.board.get(player.focus)) |piece_taken| {
-            state.board.addTaken(piece_taken);
+        if (play.board.get(player.focus)) |piece_taken| {
+            play.board.addTaken(piece_taken);
         }
 
         player.selected = null;
@@ -215,7 +223,7 @@ fn selectOrMove(
 
     player.selected = null;
 
-    const move = state.getAvailableMove(selected, player.focus) orelse
+    const move = play.board.getMatchingAvailableMove(selected, player.focus) orelse
         return;
     assert(move.destination.eql(player.focus));
 
@@ -231,7 +239,12 @@ fn applyAndCommitMove(
     debug_force: bool,
     channel: *Channel(Message),
 ) void {
-    state.board.applyMove(origin, move);
+    const play = switch (state.status) {
+        .play => |*play| play,
+        else => unreachable,
+    };
+
+    play.board.applyMove(origin, move);
 
     if (debug_force) {
         channel.send(.{ .debug_force_commit_move = .{
@@ -248,8 +261,12 @@ fn applyAndCommitMove(
 
 /// Returns which side has won the game, if any.
 fn isWin(state: *const State) ?Side {
-    const alive_white = state.board.isPieceAlive(.{ .kind = .king, .side = .white });
-    const alive_black = state.board.isPieceAlive(.{ .kind = .king, .side = .black });
+    const board = state.getBoard() orelse {
+        return null;
+    };
+
+    const alive_white = board.isPieceAlive(.{ .kind = .king, .side = .white });
+    const alive_black = board.isPieceAlive(.{ .kind = .king, .side = .black });
 
     assert(alive_white or alive_black);
     if (!alive_white) {
@@ -267,15 +284,19 @@ pub fn isMoveValid(
     origin: Tile,
     move: Move,
 ) bool {
-    const active_side = switch (state.status) {
-        .play => |active_side| active_side,
+    const play = switch (state.status) {
+        .play => |play| play,
         else => return false,
     };
-    if (side != active_side) {
+
+    if (side != play.active) {
         return false;
     }
 
-    const expected_move = state.getAvailableMove(origin, move.destination) orelse {
+    const expected_move = play.board.getMatchingAvailableMove(
+        origin,
+        move.destination,
+    ) orelse {
         return false;
     };
     if (!move.eql(expected_move)) {

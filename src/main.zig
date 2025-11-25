@@ -159,6 +159,7 @@ pub const RenderMessage = enum {
     update,
 };
 
+// TODO: Rename shared mutex fields *_mutex ? and elsewhere
 fn renderWorker(shared: struct {
     state: *MutexPtr(State),
     ui: *MutexPtr(Ui),
@@ -222,8 +223,12 @@ fn inputWorker(shared: struct {
 
         shared.render_channel.send(.update);
 
-        if (!state.player_local.eql(previous_state.player_local)) {
-            shared.send_channel.send(.{ .position = state.player_local });
+        if (state.getPlayerLocal()) |player_local| {
+            if (previous_state.getPlayerLocal()) |previous| {
+                if (!player_local.eql(previous.*)) {
+                    shared.send_channel.send(.{ .position = player_local.* });
+                }
+            }
         }
     }
 }
@@ -375,7 +380,13 @@ fn handleMessage(
                 return error.IllegalMessage;
             }
 
-            state.player_remote = position;
+            const play = switch (state.status) {
+                .play => |*play| play,
+                else => return error.IllegalMessage,
+            };
+
+            play.player_remote = position;
+
             shared.render_channel.send(.update);
         },
 
@@ -389,19 +400,30 @@ fn handleMessage(
                 return error.IllegalMessage;
             }
 
-            state.board.applyMove(commit_move.origin, commit_move.move);
+            const play = switch (state.status) {
+                .play => |*play| play,
+                else => return error.IllegalMessage,
+            };
+
+            play.board.applyMove(commit_move.origin, commit_move.move);
             Game.advanceNextTurn(state);
 
             shared.render_channel.send(.update);
         },
 
-        .debug_set_status => |status| {
-            state.status = status;
-            shared.render_channel.send(.update);
-        },
+        // TODO:
+        // .debug_set_status => |status| {
+        //     state.status = status;
+        //     shared.render_channel.send(.update);
+        // },
 
         .debug_force_commit_move => |commit_move| {
-            state.board.applyMove(commit_move.origin, commit_move.move);
+            const play = switch (state.status) {
+                .play => |*play| play,
+                else => return error.IllegalMessage,
+            };
+
+            play.board.applyMove(commit_move.origin, commit_move.move);
             Game.advanceNextTurn(state);
 
             shared.render_channel.send(.update);

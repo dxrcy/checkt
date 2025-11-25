@@ -9,15 +9,41 @@ pub const Tile = Board.Tile;
 const moves = @import("moves.zig");
 const Move = moves.Move;
 
+// TODO: Perhaps merge this struct with `Game`, and make `Status` the new
+// `State`
+
+// TODO: RENAME!!!
+pub const Status = union(enum) {
+    play: struct {
+        active: Side,
+        board: Board,
+        player_local: Player,
+        player_remote: ?Player,
+    },
+    win: struct {
+        winner: Side,
+        board: Board,
+    },
+};
+
+// TODO: Use 3-variant enum?
 role: ?Role,
 status: Status,
-board: Board,
-player_local: Player,
-player_remote: ?Player,
 
 pub const Role = enum {
     host,
     join,
+};
+
+pub const Side = enum(u1) {
+    white = 0,
+    black = 1,
+
+    pub const COUNT = 2;
+
+    pub fn flip(self: Side) Side {
+        return if (self == .white) .black else .white;
+    }
 };
 
 pub const Player = struct {
@@ -35,37 +61,10 @@ pub const Player = struct {
     }
 };
 
-pub const Status = union(enum) {
-    play: Side,
-    win: Side,
-
-    pub fn eql(lhs: Status, rhs: Status) bool {
-        // Cheap hack!
-        const size = @sizeOf(Status);
-        const lhs_bytes = @as(*const [size]u8, @ptrCast(@alignCast(&lhs)));
-        const rhs_bytes = @as(*const [size]u8, @ptrCast(@alignCast(&rhs)));
-        return std.mem.eql(u8, lhs_bytes, rhs_bytes);
-    }
-};
-
-pub const Side = enum(u1) {
-    white = 0,
-    black = 1,
-
-    pub const COUNT = 2;
-
-    pub fn flip(self: Side) Side {
-        return if (self == .white) .black else .white;
-    }
-};
-
 pub fn new(role: ?Role) Self {
     var self = Self{
         .role = role,
         .status = undefined,
-        .board = undefined,
-        .player_local = undefined,
-        .player_remote = undefined,
     };
     self.resetGame();
     return self;
@@ -75,16 +74,32 @@ pub fn resetGame(self: *Self) void {
     const FOCUS_WHITE = Tile{ .rank = 5, .file = 6 };
     const FOCUS_BLACK = Tile{ .rank = 2, .file = 1 };
 
-    self.status = .{ .play = .white };
-    self.board = Board.new();
+    self.status = .{ .play = .{
+        .active = .white,
+        .board = Board.new(),
 
-    self.player_local = .{
-        .focus = if (self.role == .join) FOCUS_BLACK else FOCUS_WHITE,
-        .selected = null,
+        .player_local = .{
+            .focus = if (self.role == .join) FOCUS_BLACK else FOCUS_WHITE,
+            .selected = null,
+        },
+        .player_remote = if (self.role == null) null else .{
+            .focus = if (self.role == .join) FOCUS_WHITE else FOCUS_BLACK,
+            .selected = null,
+        },
+    } };
+}
+
+pub fn getBoard(self: *const Self) ?*const Board {
+    return switch (self.status) {
+        .play => |play| &play.board,
+        .win => |win| &win.board,
     };
-    self.player_remote = if (self.role == null) null else .{
-        .focus = if (self.role == .join) FOCUS_WHITE else FOCUS_BLACK,
-        .selected = null,
+}
+
+pub fn getPlayerLocal(self: *const Self) ?*const Player {
+    return switch (self.status) {
+        .play => |*play| &play.player_local,
+        else => null,
     };
 }
 
@@ -94,20 +109,10 @@ pub fn getLocalSide(self: *const Self) Side {
 
 pub fn isLocalSideActive(self: *const Self) bool {
     switch (self.status) {
-        .play => |active_side| {
+        .play => |*play| {
             return self.role == null or
-                active_side == self.getLocalSide();
+                play.active == self.getLocalSide();
         },
         else => return false,
     }
-}
-
-pub fn getAvailableMove(self: *const Self, origin: Tile, destination: Tile) ?Move {
-    var available_moves = self.board.getAvailableMoves(origin);
-    while (available_moves.next()) |available| {
-        if (available.destination.eql(destination)) {
-            return available;
-        }
-    }
-    return null;
 }
