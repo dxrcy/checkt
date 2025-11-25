@@ -91,8 +91,8 @@ pub fn resetGame(self: *Self) void {
 
 pub fn getBoard(self: *const Self) ?*const Board {
     return switch (self.status) {
-        .play => |play| &play.board,
-        .win => |win| &win.board,
+        .play => |*play| &play.board,
+        .win => |*win| &win.board,
     };
 }
 
