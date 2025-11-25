@@ -157,16 +157,13 @@ pub fn render(self: *Self, state: *const State) void {
             self.renderPiece(piece, tile, .{});
 
             if (count > 1) {
-                const position: Position = if (self.small)
-                    .{
-                        .x = tile.file * tile_size.WIDTH_SMALL + tile_size.PADDING_LEFT_SMALL + 2,
-                        .y = tile.rank * tile_size.HEIGHT_SMALL + 1,
-                    }
-                else
-                    .{
-                        .x = tile.file * tile_size.WIDTH + tile_size.PADDING_LEFT + Piece.WIDTH + 1,
-                        .y = tile.rank * tile_size.HEIGHT + 1,
-                    };
+                const position: Position = if (self.small) .{
+                    .x = tile.file * tile_size.WIDTH_SMALL + tile_size.PADDING_LEFT_SMALL + 2,
+                    .y = tile.rank * tile_size.HEIGHT_SMALL + 1,
+                } else .{
+                    .x = tile.file * tile_size.WIDTH + tile_size.PADDING_LEFT + Piece.WIDTH + 1,
+                    .y = tile.rank * tile_size.HEIGHT + 1,
+                };
 
                 self.renderDecimalInt(
                     count,
@@ -203,10 +200,10 @@ pub fn render(self: *Self, state: *const State) void {
                     "game",
                     "over",
                 },
-                .{
-                    .y = if (self.small) 6 else 14,
-                    .x = if (self.small) 8 else 20,
-                },
+                if (self.small)
+                    .{ .y = 6, .x = 8 }
+                else
+                    .{ .x = 14, .y = 20 },
             );
 
             const string = if (side == .white)
@@ -225,17 +222,17 @@ pub fn render(self: *Self, state: *const State) void {
                     .y = if (self.small) 18 else 26,
                     .x = (Board.SIZE * (tile_width) - string.len) / 2,
                 },
-                .{
-                    .bold = true,
-                },
+                .{ .bold = true },
             );
         },
 
         .play => |active_side| {
             const player = state.player_local;
+
             const side: Side = if (state.role == null)
                 active_side
-            else if (state.role == .host) .white else .black;
+            else
+                (if (state.role == .host) .white else .black);
 
             // Highlight check
             if (state.board.isSideInCheck(side)) {
@@ -345,25 +342,6 @@ pub fn render(self: *Self, state: *const State) void {
     //     const string = std.fmt.bufPrint(&buffer, "{:10}", .{time_ms}) catch unreachable;
     //     self.renderTextLineNormal(string, 0, 0, .{});
     // }
-
-    // self.renderTextLineNormal(
-    //     if (state.role == .host) "host" else "join",
-    //     0,
-    //     0,
-    //     .{},
-    // );
-    // self.renderTextLineNormal(
-    //     if (state.status.play == .white) "white" else "black",
-    //     1,
-    //     0,
-    //     .{},
-    // );
-    // self.renderTextLineNormal(
-    //     if (state.simulating_remote) "other" else "self",
-    //     2,
-    //     0,
-    //     .{},
-    // );
 }
 
 fn renderTextLineNormal(
@@ -649,19 +627,19 @@ pub fn draw(self: *Self) void {
     self.swapFrames();
 }
 
-pub fn getForeFrame(self: *Self) *Frame {
+fn getForeFrame(self: *Self) *Frame {
     return &self.frames[self.current_frame];
 }
-pub fn getBackFrame(self: *Self) *Frame {
+fn getBackFrame(self: *Self) *Frame {
     assert(@TypeOf(self.current_frame) == u1);
     return &self.frames[self.current_frame +% 1];
 }
-pub fn swapFrames(self: *Self) void {
+fn swapFrames(self: *Self) void {
     assert(@TypeOf(self.current_frame) == u1);
     self.current_frame +%= 1;
 }
 
-pub fn getEdge(self: *const Self, edge: Edge) u21 {
+fn getEdge(self: *const Self, edge: Edge) u21 {
     return if (self.ascii) switch (edge) {
         .left, .right => '|',
         .top, .bottom => '-',
