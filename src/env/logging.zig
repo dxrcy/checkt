@@ -32,6 +32,7 @@ var LOG_FILE = Output(64).uninit;
 /// `true` if already tried `init` log file, but failed.
 var INIT_FAILED = false;
 
+/// Idempotent.
 pub fn init() void {
     tryInit() catch |err| {
         INIT_FAILED = true;
@@ -40,9 +41,11 @@ pub fn init() void {
     };
 }
 
+/// Idempotent.
 fn tryInit() !void {
-    assert(LOG_FILE.inner == null);
-    assert(!INIT_FAILED);
+    if (LOG_FILE.inner != null or INIT_FAILED) {
+        return;
+    }
 
     // TODO: Make portable (at least for posix)
     const pid = std.os.linux.getpid();
@@ -75,6 +78,7 @@ fn logToFile(
     comptime fmt: []const u8,
     args: anytype,
 ) !void {
+    // Not the fault of `main`
     assert(!INIT_FAILED);
 
     const writer = LOG_FILE.tryWriter() orelse {
