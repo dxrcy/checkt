@@ -187,12 +187,21 @@ pub fn getMatchingAvailableMove(
     destination: Tile,
 ) ?Move {
     var available_moves = self.getAvailableMoves(origin);
+
     while (available_moves.next()) |available| {
-        if (available.destination.eql(destination)) {
-            // TODO: No early return; instead assert that no MORE moves match
-            return available;
+        if (!available.destination.eql(destination)) {
+            continue;
         }
+
+        // Ensure at most 1 move matches origin+destination
+        // This will fail if rules are defined (or applied) poorly
+        while (available_moves.next()) |other| {
+            assert(!other.destination.eql(destination));
+        }
+
+        return available;
     }
+
     return null;
 }
 
