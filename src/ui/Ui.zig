@@ -52,7 +52,10 @@ const Edge = enum {
     bottom_right,
 };
 
-const Rect = struct { y: usize, x: usize, h: usize, w: usize };
+const Rect = struct {
+    position: Position,
+    size: Position,
+};
 
 pub fn new(ascii: bool, small: bool) Self {
     return Self{
@@ -373,10 +376,10 @@ fn renderTextLineNormal(
 
     for (string, 0..) |char, x| {
         frame.set(
-            .{
-                .y = origin.y,
-                .x = origin.x + x,
-            },
+            origin.add(.{
+                .y = 0,
+                .x = x,
+            }),
             (Cell.Options{
                 .char = char,
                 .fg = .white,
@@ -394,10 +397,10 @@ fn renderTextLarge(
     for (lines, 0..) |string, row| {
         self.renderTextLineLine(
             string,
-            .{
-                .y = origin.y + row * (text.HEIGHT + text.GAP_Y),
-                .x = origin.x,
-            },
+            origin.add(.{
+                .y = row * (text.HEIGHT + text.GAP_Y),
+                .x = 0,
+            }),
         );
     }
 }
@@ -418,10 +421,10 @@ fn renderTextLineLine(
                 const char = text.translateSymbol(symbol, self.ascii);
 
                 frame.set(
-                    .{
-                        .y = origin.y + y,
-                        .x = origin.x + i * (text.WIDTH + text.GAP_X) + x,
-                    },
+                    origin.add(.{
+                        .y = y,
+                        .x = i * (text.WIDTH + text.GAP_X) + x,
+                    }),
                     .{
                         .char = char,
                         .fg = .white,
@@ -497,18 +500,26 @@ fn getPieceColor(side: State.Side) Color {
 fn getTileRect(self: *const Self, tile: Tile) Rect {
     if (self.small) {
         return Rect{
-            .y = tile.rank * tile_size.HEIGHT_SMALL,
-            .x = tile.file * tile_size.WIDTH_SMALL,
-            .h = tile_size.HEIGHT_SMALL,
-            .w = tile_size.WIDTH_SMALL,
+            .position = .{
+                .y = tile.rank * tile_size.HEIGHT_SMALL,
+                .x = tile.file * tile_size.WIDTH_SMALL,
+            },
+            .size = .{
+                .y = tile_size.HEIGHT_SMALL,
+                .x = tile_size.WIDTH_SMALL,
+            },
         };
     }
 
     return Rect{
-        .y = tile.rank * tile_size.HEIGHT,
-        .x = tile.file * tile_size.WIDTH,
-        .h = tile_size.HEIGHT,
-        .w = tile_size.WIDTH,
+        .position = .{
+            .y = tile.rank * tile_size.HEIGHT,
+            .x = tile.file * tile_size.WIDTH,
+        },
+        .size = .{
+            .y = tile_size.HEIGHT,
+            .x = tile_size.WIDTH,
+        },
     };
 }
 
@@ -519,12 +530,9 @@ fn renderRectSolid(
 ) void {
     var frame = self.getForeFrame();
 
-    for (0..rect.h) |y| {
-        for (0..rect.w) |x| {
-            frame.set(.{
-                .y = rect.y + y,
-                .x = rect.x + x,
-            }, options);
+    for (0..rect.size.y) |y| {
+        for (0..rect.size.x) |x| {
+            frame.set(rect.position.add(.{ .y = y, .x = x }), options);
         }
     }
 }
@@ -536,36 +544,36 @@ fn renderRectHighlight(
 ) void {
     var frame = self.getForeFrame();
 
-    for (1..rect.w - 1) |x| {
+    for (1..rect.size.x - 1) |x| {
         frame.set(
-            .{
-                .y = rect.y,
-                .x = rect.x + x,
-            },
+            rect.position.add(.{
+                .y = 0,
+                .x = x,
+            }),
             (Cell.Options{ .char = self.getEdge(.top) }).join(options),
         );
         frame.set(
-            .{
-                .y = rect.y + rect.h - 1,
-                .x = rect.x + x,
-            },
+            rect.position.add(.{
+                .y = rect.size.y - 1,
+                .x = x,
+            }),
             (Cell.Options{ .char = self.getEdge(.bottom) }).join(options),
         );
     }
 
-    for (1..rect.h - 1) |y| {
+    for (1..rect.size.y - 1) |y| {
         frame.set(
-            .{
-                .y = rect.y + y,
-                .x = rect.x,
-            },
+            rect.position.add(.{
+                .y = y,
+                .x = 0,
+            }),
             (Cell.Options{ .char = self.getEdge(.left) }).join(options),
         );
         frame.set(
-            .{
-                .y = rect.y + y,
-                .x = rect.x + rect.w - 1,
-            },
+            rect.position.add(.{
+                .y = y,
+                .x = rect.size.x - 1,
+            }),
             (Cell.Options{ .char = self.getEdge(.right) }).join(options),
         );
     }
@@ -582,10 +590,10 @@ fn renderRectHighlight(
         const x = corner[1];
         const edge = corner[2];
         frame.set(
-            .{
-                .y = rect.y + y * (rect.h - 1),
-                .x = rect.x + x * (rect.w - 1),
-            },
+            rect.position.add(.{
+                .y = y * (rect.size.y - 1),
+                .x = x * (rect.size.x - 1),
+            }),
             (Cell.Options{ .char = self.getEdge(edge) }).join(options),
         );
     }

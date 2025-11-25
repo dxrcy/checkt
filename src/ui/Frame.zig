@@ -26,6 +26,13 @@ pub const Position = struct {
     pub fn isInBounds(self: Position) bool {
         return self.y < HEIGHT and self.x < WIDTH;
     }
+
+    pub fn add(lhs: Position, rhs: Position) Position {
+        return Position{
+            .y = lhs.y + rhs.y,
+            .x = lhs.x + rhs.x,
+        };
+    }
 };
 
 pub fn new() Self {
