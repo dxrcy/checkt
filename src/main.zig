@@ -2,20 +2,19 @@ const std = @import("std");
 const assert = std.debug.assert;
 const log = std.log;
 const time = std.time;
-const Instant = time.Instant;
+const Instant = std.time.Instant;
+
+const output = @import("env/output.zig");
+const Connection = @import("connection/Connection.zig");
+const handlers = @import("env/handlers.zig");
+const logging = @import("env/logging.zig");
+const Game = @import("game/Game.zig");
+const State = Game.State;
+const Board = Game.State.Board;
+const Tile = Game.State.Tile;
+const Ui = @import("ui/Ui.zig");
 
 const Args = @import("Args.zig");
-const Board = @import("Board.zig");
-const Connection = @import("Connection.zig");
-const Game = @import("Game.zig");
-const Ui = @import("Ui.zig");
-const handlers = @import("handlers.zig");
-const logging = @import("logging.zig");
-const output = @import("output.zig");
-
-const State = @import("State.zig");
-const Tile = State.Tile;
-
 const concurrent = @import("concurrent.zig");
 const Channel = concurrent.Channel;
 const MutexPtr = concurrent.MutexPtr;

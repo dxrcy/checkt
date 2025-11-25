@@ -2,8 +2,8 @@ const Self = @This();
 
 const std = @import("std");
 
-const State = @import("State.zig");
-const output = @import("output.zig");
+const output = @import("env/output.zig");
+const State = @import("game/State.zig");
 
 ascii: bool,
 small: bool,

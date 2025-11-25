@@ -4,18 +4,16 @@ const std = @import("std");
 const assert = std.debug.assert;
 const posix = std.posix;
 
-const State = @import("State.zig");
-const Side = State.Side;
+const State = @import("../game/State.zig");
 const Board = State.Board;
-const Piece = State.Board.Piece;
+const Piece = Board.Piece;
+const Side = State.Side;
 const Tile = State.Tile;
-
-const Terminal = @import("Terminal.zig");
-const Color = Terminal.Attributes.Color;
 
 const Frame = @import("Frame.zig");
 const Cell = Frame.Cell;
-
+const Terminal = @import("Terminal.zig");
+const Color = Terminal.Attributes.Color;
 const text = @import("text.zig");
 
 terminal: Terminal,

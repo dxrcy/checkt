@@ -3,8 +3,9 @@ const Self = @This();
 const std = @import("std");
 const net = std.net;
 
+const Message = @import("../game/Game.zig").Message;
+
 const serde = @import("serde.zig");
-const Message = @import("Game.zig").Message;
 
 const START_ADDRESS = net.Address.parseIp4("127.0.0.1", 5100) catch unreachable;
 const PORT_RANGE = 400;

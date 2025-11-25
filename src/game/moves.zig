@@ -2,8 +2,8 @@ const std = @import("std");
 const assert = std.debug.assert;
 
 const Board = @import("Board.zig");
-const Tile = Board.Tile;
 const Piece = Board.Piece;
+const Tile = Board.Tile;
 
 const RULES = @import("move_rules.zig").RULES;
 

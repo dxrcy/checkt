@@ -3,14 +3,13 @@ const Self = @This();
 const std = @import("std");
 const assert = std.debug.assert;
 
-const State = @import("State.zig");
+const State = @import("../game/State.zig");
 const Board = State.Board;
 const Piece = State.Piece;
 const Tile = State.Tile;
 
 const Terminal = @import("Terminal.zig");
 const Attributes = Terminal.Attributes;
-
 const Ui = @import("Ui.zig");
 
 // TODO: Use larger size

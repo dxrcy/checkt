@@ -3,14 +3,13 @@ const Self = @This();
 const std = @import("std");
 const assert = std.debug.assert;
 
-const serde = @import("serde.zig");
-
-const State = @import("State.zig");
-const Side = State.Side;
+const serde = @import("../connection/serde.zig");
 
 const moves = @import("moves.zig");
-const Move = moves.Move;
 const AvailableMoves = moves.AvailableMoves;
+const Move = moves.Move;
+const State = @import("State.zig");
+const Side = State.Side;
 
 // TODO: Rename
 const TileIndex = u16;

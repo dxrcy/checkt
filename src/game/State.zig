@@ -4,9 +4,8 @@ const std = @import("std");
 const assert = std.debug.assert;
 
 pub const Board = @import("Board.zig");
-pub const Tile = Board.Tile;
 pub const Piece = Board.Piece;
-
+pub const Tile = Board.Tile;
 const moves = @import("moves.zig");
 const Move = moves.Move;
 

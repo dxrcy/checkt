@@ -3,12 +3,12 @@ const Self = @This();
 const std = @import("std");
 const assert = std.debug.assert;
 
-const Connection = @import("Connection.zig");
-const Channel = @import("concurrent.zig").Channel;
-const Board = @import("Board.zig");
-const Move = @import("moves.zig").Move;
+const Channel = @import("../concurrent.zig").Channel;
+const Connection = @import("../connection/Connection.zig");
 
-const State = @import("State.zig");
+const Move = @import("moves.zig").Move;
+pub const State = @import("State.zig");
+const Board = State.Board;
 const Side = State.Side;
 const Tile = State.Tile;
 

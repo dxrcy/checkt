@@ -5,7 +5,7 @@ const assert = std.debug.assert;
 const panic = std.debug.panic;
 const posix = std.posix;
 
-const output = @import("output.zig");
+const output = @import("../env/output.zig");
 
 original_termios: ?posix.termios,
 /// Most methods do **not** modify this field. Eg. [`print`].
