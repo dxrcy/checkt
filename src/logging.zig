@@ -16,7 +16,9 @@ pub fn logFn(
 }
 
 const BUFFER_SIZE = 64;
-const FILENAME = "log";
+
+const LOG_DIR = "logs";
+const FILENAME = "foo";
 
 var LOG_FILE: ?struct {
     file: fs.File,
@@ -27,15 +29,20 @@ var LOG_FILE: ?struct {
 pub fn init() !void {
     assert(LOG_FILE == null);
 
-    const flags: fs.File.CreateFlags = .{
+    const dir_options: fs.Dir.OpenOptions = .{};
+    const dir = fs.cwd().openDir(LOG_DIR, dir_options) catch |err| switch (err) {
+        error.FileNotFound => try fs.cwd().makeOpenPath(LOG_DIR, dir_options),
+        else => |err2| return err2,
+    };
+
+    const file_flags: fs.File.CreateFlags = .{
         .read = false,
         .truncate = true,
         .exclusive = false,
         .lock = .exclusive,
         .lock_nonblocking = true,
     };
-
-    const file = try fs.cwd().createFile(FILENAME, flags);
+    const file = try dir.createFile(FILENAME, file_flags);
 
     LOG_FILE = .{
         .file = file,
