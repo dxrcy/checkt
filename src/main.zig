@@ -30,8 +30,6 @@ pub const std_options = std.Options{
 
 // TODO: Use log scopes
 
-// TODO: Move?
-
 pub fn main() !u8 {
     output.stdout.init();
     output.stderr.init();
@@ -75,8 +73,6 @@ pub fn run() !u8 {
     if (args.role != null) {
         log.info("remote connected", .{});
     }
-
-    // TODO: Initialize stdout writer somewhere in main, not lazily
 
     var ui = Ui.new(args.ascii, args.small);
     try ui.enter();
@@ -340,7 +336,6 @@ fn send_worker(shared: struct {
     }
 }
 
-// TODO: Replace this scuffed method with an event loop (GENIOUS!)
 // NOTE: This is useful for simulating latency without blocking subsequent messages
 fn send_worker_action(
     connection_mutex: *MutexPtr(Connection),
