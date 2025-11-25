@@ -1,7 +1,7 @@
 const std = @import("std");
 const posix = std.posix;
 
-const RenderMessage = @import("root").RenderMessage;
+const RenderEvent = @import("root").RenderEvent;
 
 const Channel = @import("../concurrent.zig").Channel;
 const Ui = @import("../ui/Ui.zig");
@@ -10,7 +10,7 @@ const handlers = @import("handlers.zig");
 
 pub const globals = struct {
     pub var UI: ?*Ui = null;
-    pub var RENDER_CHANNEL: ?*Channel(RenderMessage) = null;
+    pub var RENDER_CHANNEL: ?*Channel(RenderEvent) = null;
 };
 
 pub threadlocal var THREAD_NAME: ?[]const u8 = null;

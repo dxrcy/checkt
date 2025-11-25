@@ -88,7 +88,7 @@ pub fn run() !u8 {
         var game_mutex = MutexPtr(Game).new(&game);
         var ui_mutex = MutexPtr(Ui).new(&ui);
 
-        var render_channel = Channel(RenderMessage).empty;
+        var render_channel = Channel(RenderEvent).empty;
         var send_channel = Channel(Game.Message).empty;
 
         if (!is_multiplayer) {
@@ -151,7 +151,7 @@ pub fn run() !u8 {
     return 0;
 }
 
-pub const RenderMessage = enum {
+pub const RenderEvent = enum {
     redraw,
     update,
 };
@@ -160,7 +160,7 @@ pub const RenderMessage = enum {
 fn renderWorker(shared: struct {
     game: *MutexPtr(Game),
     ui: *MutexPtr(Ui),
-    render_channel: *Channel(RenderMessage),
+    render_channel: *Channel(RenderEvent),
 }) void {
     shared.render_channel.send(.update);
 
@@ -189,7 +189,7 @@ fn renderWorker(shared: struct {
 fn inputWorker(shared: struct {
     game: *MutexPtr(Game),
     ui: *MutexPtr(Ui),
-    render_channel: *Channel(RenderMessage),
+    render_channel: *Channel(RenderEvent),
     send_channel: *Channel(Game.Message),
 }) void {
     var previous_state: Game.State = undefined;
@@ -307,7 +307,7 @@ fn sendWorkerAction(
 fn recvWorker(shared: struct {
     game: *MutexPtr(Game),
     connection: *Connection,
-    render_channel: *Channel(RenderMessage),
+    render_channel: *Channel(RenderEvent),
     send_channel: *Channel(Game.Message),
     last_ping: *Instant,
 }) !void {
@@ -350,7 +350,7 @@ fn recvWorker(shared: struct {
 fn handleMessage(
     shared: struct {
         game: *MutexPtr(Game),
-        render_channel: *Channel(RenderMessage),
+        render_channel: *Channel(RenderEvent),
         send_channel: *Channel(Game.Message),
         last_ping: *Instant,
     },
