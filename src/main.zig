@@ -103,13 +103,13 @@ pub fn run() !u8 {
         defer handlers.globals.RENDER_CHANNEL = null;
 
         const workers = [_]?Worker{
-            try Worker.spawn("render", .detach, render_worker, .{
+            try Worker.spawn("render", .detach, renderWorker, .{
                 .state = &state_mutex,
                 .ui = &ui_mutex,
                 .render_channel = &render_channel,
             }),
 
-            try Worker.spawn("input", .join, input_worker, .{
+            try Worker.spawn("input", .join, inputWorker, .{
                 .state = &state_mutex,
                 .ui = &ui_mutex,
                 .render_channel = &render_channel,
@@ -117,13 +117,13 @@ pub fn run() !u8 {
             }),
 
             if (!is_multiplayer) null else //
-            try Worker.spawn("send", .detach, send_worker, .{
+            try Worker.spawn("send", .detach, sendWorker, .{
                 .connection = &connection,
                 .send_channel = &send_channel,
             }),
 
             if (!is_multiplayer) null else //
-            try Worker.spawn("recv", .detach, recv_worker, .{
+            try Worker.spawn("recv", .detach, recvWorker, .{
                 .state = &state_mutex,
                 .connection = &connection,
                 .render_channel = &render_channel,
@@ -132,7 +132,7 @@ pub fn run() !u8 {
             }),
 
             if (!is_multiplayer) null else //
-            try Worker.spawn("ping", .detach, ping_worker, .{
+            try Worker.spawn("ping", .detach, pingWorker, .{
                 .send_channel = &send_channel,
                 .last_ping = &last_ping,
             }),
@@ -158,7 +158,7 @@ pub const RenderMessage = enum {
     update,
 };
 
-fn render_worker(shared: struct {
+fn renderWorker(shared: struct {
     state: *MutexPtr(State),
     ui: *MutexPtr(Ui),
     render_channel: *Channel(RenderMessage),
@@ -187,7 +187,7 @@ fn render_worker(shared: struct {
     }
 }
 
-fn input_worker(shared: struct {
+fn inputWorker(shared: struct {
     state: *MutexPtr(State),
     ui: *MutexPtr(Ui),
     render_channel: *Channel(RenderMessage),
@@ -248,7 +248,7 @@ fn input_worker(shared: struct {
     }
 }
 
-fn send_worker(shared: struct {
+fn sendWorker(shared: struct {
     connection: *Connection,
     send_channel: *Channel(Game.Message),
 }) !void {
@@ -256,12 +256,12 @@ fn send_worker(shared: struct {
 
     while (true) {
         const message = shared.send_channel.recv();
-        _ = try std.Thread.spawn(.{}, send_worker_action, .{ &connection_mutex, message });
+        _ = try std.Thread.spawn(.{}, sendWorkerAction, .{ &connection_mutex, message });
     }
 }
 
 // NOTE: This is useful for simulating latency without blocking subsequent messages
-fn send_worker_action(
+fn sendWorkerAction(
     connection_mutex: *MutexPtr(Connection),
     message: Game.Message,
 ) void {
@@ -283,7 +283,7 @@ fn send_worker_action(
     };
 }
 
-fn recv_worker(shared: struct {
+fn recvWorker(shared: struct {
     state: *MutexPtr(State),
     connection: *Connection,
     render_channel: *Channel(RenderMessage),
@@ -396,7 +396,7 @@ fn handleMessage(
     }
 }
 
-fn ping_worker(shared: struct {
+fn pingWorker(shared: struct {
     send_channel: *Channel(Game.Message),
     last_ping: *Instant,
 }) !void {
