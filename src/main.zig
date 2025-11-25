@@ -355,8 +355,6 @@ fn handleMessage(
     },
     message: Game.Message,
 ) !void {
-    const scoped = log.scoped(.recv);
-
     const state = shared.state.lock();
     defer shared.state.unlock();
 
@@ -410,8 +408,7 @@ fn handleMessage(
         },
 
         .debug_kill_remote => {
-            scoped.warn("killed by remote", .{});
-            handlers.exit();
+            suddenlyDie("killed by remote", .{});
         },
     }
 }
@@ -440,8 +437,20 @@ fn pingWorker(shared: struct {
         }
 
         if (time_since_last > TIMEOUT_NS) {
-            scoped.warn("remote timeout", .{});
-            handlers.exit();
+            suddenlyDie("remote timeout", .{});
         }
     }
+}
+
+fn suddenlyDie(comptime fmt: []const u8, args: anytype) noreturn {
+    log.warn(fmt, args);
+
+    if (handlers.globals.UI) |ui| {
+        ui.exit() catch {};
+    }
+
+    output.stderr.print("exiting: " ++ fmt ++ "\n", args);
+    output.stderr.flush();
+
+    std.process.exit(0);
 }
