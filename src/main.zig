@@ -29,8 +29,6 @@ pub const std_options = std.Options{
 
 pub fn main() !u8 {
     try logging.init();
-    log.info("TEST", .{});
-    log.info("TEST 2", .{});
 
     const args = Args.parse() orelse {
         return 1;
