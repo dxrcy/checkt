@@ -55,13 +55,16 @@ pub fn main() !u8 {
         .join => Connection.newClient(args.port orelse unreachable),
     } else Connection.newSingle();
 
+    // TODO: Move to ui
     if (args.role == .host) {
-        // TODO: Print to stdout also
-        log.info("hosting on port {}.", .{connection.port});
-        log.info("waiting for client to join", .{});
+        log.info("hosting: {}", .{connection.port});
+        output.stdout.print("hosting on port {}.\n", .{connection.port});
+        output.stdout.print("waiting for client to join...\n", .{});
+        output.stdout.flush();
     } else if (args.role == .join) {
-        // TODO: Print to stdout also
-        log.info("joining server", .{});
+        log.info("joining: {}", .{connection.port});
+        output.stdout.print("joining server...\n", .{});
+        output.stdout.flush();
     }
 
     try connection.init();
@@ -145,6 +148,7 @@ pub fn main() !u8 {
             }
         }
     }
+
     log.info("end of game loop", .{});
 
     // Don't `defer`, so that error can be returned if possible
