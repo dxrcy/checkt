@@ -84,6 +84,7 @@ pub fn main() !u8 {
     handlers.registerSignalHandlers();
 
     var state = State.new(args.role);
+    const is_multiplayer = state.role != null;
 
     log.info("starting game loop", .{});
     {
@@ -92,6 +93,10 @@ pub fn main() !u8 {
 
         var render_channel = Channel(RenderMessage).empty;
         var send_channel = Channel(Connection.Message).empty;
+
+        if (!is_multiplayer) {
+            send_channel.discard = true;
+        }
 
         var last_ping = try Instant.now();
 
@@ -112,13 +117,13 @@ pub fn main() !u8 {
                 .send_channel = &send_channel,
             }),
 
-            if (state.role == null) null else //
+            if (!is_multiplayer) null else //
             try Worker.spawn("send", .detach, send_worker, .{
                 .connection = &connection,
                 .send_channel = &send_channel,
             }),
 
-            if (state.role == null) null else //
+            if (!is_multiplayer) null else //
             try Worker.spawn("recv", .detach, recv_worker, .{
                 .state = &state_mutex,
                 .connection = &connection,
@@ -127,7 +132,7 @@ pub fn main() !u8 {
                 .last_ping = &last_ping,
             }),
 
-            if (state.role == null) null else //
+            if (!is_multiplayer) null else //
             try Worker.spawn("ping", .detach, ping_worker, .{
                 .send_channel = &send_channel,
                 .last_ping = &last_ping,
