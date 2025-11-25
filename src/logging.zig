@@ -3,6 +3,8 @@ const assert = std.debug.assert;
 const fs = std.fs;
 const log = std.log;
 
+const Output = @import("output.zig").Output;
+
 pub fn logFn(
     comptime message_level: log.Level,
     comptime scope: @TypeOf(.enum_literal),
@@ -15,24 +17,18 @@ pub fn logFn(
     };
 }
 
-const BUFFER_SIZE = 64;
-
 const LOG_DIR = switch (@import("builtin").os.tag) {
     // TODO: Support more systems obviously
     .linux => "/tmp/checkt",
     else => @compileError("unsupported system"),
 };
 
+var LOG_FILE = Output(64).uninit;
+
 // TODO: If init failed, just warn and use default logger
 
-var LOG_FILE: ?struct {
-    file: fs.File,
-    writer: fs.File.Writer,
-    buffer: [BUFFER_SIZE]u8,
-} = null;
-
 pub fn init() !void {
-    assert(LOG_FILE == null);
+    assert(LOG_FILE.inner == null);
 
     // TODO: Make portable (at least for posix)
     const pid = std.os.linux.getpid();
@@ -56,20 +52,7 @@ pub fn init() !void {
     };
     const file = try dir.createFile(filename, file_flags);
 
-    LOG_FILE = .{
-        .file = file,
-        .writer = undefined,
-        .buffer = undefined,
-    };
-
-    LOG_FILE.?.writer = LOG_FILE.?.file.writer(&LOG_FILE.?.buffer);
-}
-
-fn getWriter() ?*fs.File.Writer {
-    if (LOG_FILE) |*file| {
-        return &file.writer;
-    }
-    return null;
+    LOG_FILE.init(file);
 }
 
 fn logToFile(
@@ -78,7 +61,7 @@ fn logToFile(
     comptime fmt: []const u8,
     args: anytype,
 ) !void {
-    const writer = getWriter() orelse {
+    const writer = LOG_FILE.tryWriter() orelse {
         return error.NotInitialized;
     };
 
