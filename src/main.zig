@@ -407,11 +407,16 @@ fn handleMessage(
             shared.render_channel.send(.update);
         },
 
-        // TODO:
-        // .debug_set_state => |state| {
-        //     game.state = state;
-        //     shared.render_channel.send(.update);
-        // },
+        .debug_set_active => |active| {
+            const play = switch (game.state) {
+                .play => |*play| play,
+                else => return error.IllegalMessage,
+            };
+
+            play.active = active;
+
+            shared.render_channel.send(.update);
+        },
 
         .debug_force_commit_move => |commit_move| {
             const play = switch (game.state) {

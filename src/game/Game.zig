@@ -84,8 +84,7 @@ pub const Message = union(enum) {
     position: Player,
     commit_move: CommitMove,
 
-    // TODO: Re-add
-    // debug_set_state: State,
+    debug_set_active: Side,
     debug_force_commit_move: CommitMove,
     debug_kill_remote: void,
 
@@ -180,8 +179,7 @@ pub fn handleInput(
         .debug_switch_side => switch (self.state) {
             .play => |*play| {
                 play.active = play.active.flip();
-                // TODO:
-                // channel.send(.{ .debug_set_state = self.state });
+                channel.send(.{ .debug_set_active = play.active });
 
                 play.player_local.selected = null;
                 if (play.player_remote) |*player_remote| {
