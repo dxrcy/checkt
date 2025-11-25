@@ -16,24 +16,6 @@ const Board = State.Board;
 const Side = State.Side;
 const Tile = State.Tile;
 
-pub const Input = enum(u8) {
-    quit,
-
-    up,
-    down,
-    left,
-    right,
-
-    confirm,
-    cancel,
-    reset,
-
-    debug_switch_side,
-    debug_force_move,
-    debug_toggle_info,
-    debug_kill_remote,
-};
-
 pub const Message = union(enum) {
     ping: void,
     pong: void,
@@ -55,6 +37,24 @@ pub const Message = union(enum) {
         move: Move,
         // TODO: Add more information, to ensure everything is synced and valid
     };
+};
+
+pub const Input = enum(u8) {
+    quit,
+
+    up,
+    down,
+    left,
+    right,
+
+    confirm,
+    cancel,
+    reset,
+
+    debug_switch_side,
+    debug_force_move,
+    debug_toggle_info,
+    debug_kill_remote,
 };
 
 /// Returns `true` if loop should break.
@@ -117,6 +117,17 @@ pub fn handleInput(
     return false;
 }
 
+pub fn advanceNextTurn(state: *State) void {
+    const current = state.status.play;
+
+    if (isWin(state)) |winning_side| {
+        assert(winning_side == current);
+        state.status = .{ .win = winning_side };
+    } else {
+        state.status = .{ .play = current.flip() };
+    }
+}
+
 fn moveFocus(state: *State, direction: enum { left, right, up, down }) void {
     assert(state.status == .play);
 
@@ -145,56 +156,6 @@ fn moveFocus(state: *State, direction: enum { left, right, up, down }) void {
             tile.rank += 1;
         },
     }
-}
-
-pub fn advanceNextTurn(state: *State) void {
-    const current = state.status.play;
-
-    if (isWin(state)) |winning_side| {
-        assert(winning_side == current);
-        state.status = .{ .win = winning_side };
-    } else {
-        state.status = .{ .play = current.flip() };
-    }
-}
-
-/// Returns which side has won the game, if any.
-fn isWin(state: *const State) ?Side {
-    const alive_white = state.board.isPieceAlive(.{ .kind = .king, .side = .white });
-    const alive_black = state.board.isPieceAlive(.{ .kind = .king, .side = .black });
-
-    assert(alive_white or alive_black);
-    if (!alive_white) {
-        return .black;
-    }
-    if (!alive_black) {
-        return .white;
-    }
-    return null;
-}
-
-pub fn isMoveValid(
-    state: *const State,
-    side: Side,
-    origin: Tile,
-    move: Move,
-) bool {
-    const active_side = switch (state.status) {
-        .play => |active_side| active_side,
-        else => return false,
-    };
-    if (side != active_side) {
-        return false;
-    }
-
-    const expected_move = state.getAvailableMove(origin, move.destination) orelse {
-        return false;
-    };
-    if (!move.eql(expected_move)) {
-        return false;
-    }
-
-    return true;
 }
 
 fn selectOrMove(
@@ -283,4 +244,43 @@ fn applyAndCommitMove(
             .move = move,
         } });
     }
+}
+
+/// Returns which side has won the game, if any.
+fn isWin(state: *const State) ?Side {
+    const alive_white = state.board.isPieceAlive(.{ .kind = .king, .side = .white });
+    const alive_black = state.board.isPieceAlive(.{ .kind = .king, .side = .black });
+
+    assert(alive_white or alive_black);
+    if (!alive_white) {
+        return .black;
+    }
+    if (!alive_black) {
+        return .white;
+    }
+    return null;
+}
+
+pub fn isMoveValid(
+    state: *const State,
+    side: Side,
+    origin: Tile,
+    move: Move,
+) bool {
+    const active_side = switch (state.status) {
+        .play => |active_side| active_side,
+        else => return false,
+    };
+    if (side != active_side) {
+        return false;
+    }
+
+    const expected_move = state.getAvailableMove(origin, move.destination) orelse {
+        return false;
+    };
+    if (!move.eql(expected_move)) {
+        return false;
+    }
+
+    return true;
 }
