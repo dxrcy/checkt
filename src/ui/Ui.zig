@@ -212,26 +212,19 @@ pub fn render(self: *Self, game: *const Game) void {
                 &[_][]const u8{
                     "chess",
                 },
+                .center_x,
                 if (self.small)
-                    .{ .y = 8, .x = 5 }
+                    .{ .y = 8, .x = 0 }
                 else
-                    .{ .y = 16, .x = 17 },
+                    .{ .y = 16, .x = 0 },
             );
 
-            // TODO: Create function to render text centered
-
-            const string = "Press SPACE to start";
-
-            const tile_width = if (self.small)
-                tile_size.WIDTH_SMALL
-            else
-                tile_size.WIDTH;
-
             self.renderTextLineNormal(
-                string,
+                "Press SPACE to start",
+                .center_x,
                 .{
                     .y = if (self.small) 15 else 23,
-                    .x = (Board.SIZE * (tile_width) - string.len) / 2,
+                    .x = 0,
                 },
                 .{ .bold = true },
             );
@@ -243,28 +236,22 @@ pub fn render(self: *Self, game: *const Game) void {
                     "game",
                     "over",
                 },
+                .center_x,
                 if (self.small)
-                    .{ .y = 6, .x = 8 }
+                    .{ .y = 6, .x = 0 }
                 else
-                    .{ .y = 14, .x = 20 },
+                    .{ .y = 14, .x = 0 },
             );
 
-            // TODO: bruh
-            const string = if (win.winner == .white)
-                "Blue wins"
-            else
-                "Red wins";
-
-            const tile_width = if (self.small)
-                tile_size.WIDTH_SMALL
-            else
-                tile_size.WIDTH;
-
             self.renderTextLineNormal(
-                string,
+                if (win.winner == .white)
+                    "Blue wins"
+                else
+                    "Red wins",
+                .center_x,
                 .{
                     .y = if (self.small) 18 else 26,
-                    .x = (Board.SIZE * (tile_width) - string.len) / 2,
+                    .x = 0,
                 },
                 .{ .bold = true },
             );
@@ -388,13 +375,51 @@ pub fn render(self: *Self, game: *const Game) void {
     // }
 }
 
+const Alignment = enum {
+    normal,
+    center_x,
+
+    pub fn apply(
+        self: Alignment,
+        small: bool,
+        offset: Position,
+        size: Position,
+    ) Position {
+        const tile_width = if (small)
+            tile_size.WIDTH_SMALL
+        else
+            tile_size.WIDTH;
+
+        const screen_width = Board.SIZE * (tile_width);
+
+        const origin: Position = switch (self) {
+            .normal => .{
+                .y = 0,
+                .x = 0,
+            },
+            .center_x => .{
+                .y = 0,
+                .x = std.math.divCeil(usize, screen_width - size.x, 2) catch 0,
+            },
+        };
+
+        return origin.add(offset);
+    }
+};
+
 fn renderTextLineNormal(
     self: *Self,
     string: []const u8,
-    origin: Position,
+    alignment: Alignment,
+    offset: Position,
     options: Cell.Options,
 ) void {
     var frame = self.getForeFrame();
+
+    const origin = alignment.apply(self.small, offset, .{
+        .y = 0,
+        .x = string.len,
+    });
 
     for (string, 0..) |char, x| {
         frame.set(
@@ -414,12 +439,14 @@ fn renderTextLineNormal(
 fn renderTextLarge(
     self: *Self,
     lines: []const []const u8,
-    origin: Position,
+    alignment: Alignment,
+    offset: Position,
 ) void {
     for (lines, 0..) |string, row| {
         self.renderTextLineLine(
             string,
-            origin.add(.{
+            alignment,
+            offset.add(.{
                 .y = row * (text.HEIGHT + text.GAP_Y),
                 .x = 0,
             }),
@@ -430,9 +457,16 @@ fn renderTextLarge(
 fn renderTextLineLine(
     self: *Self,
     string: []const u8,
-    origin: Position,
+    alignment: Alignment,
+    offset: Position,
 ) void {
     var frame = self.getForeFrame();
+
+    const origin = alignment.apply(self.small, offset, .{
+        .y = 0,
+        .x = text.WIDTH * string.len +
+            text.GAP_X * (string.len -| 1),
+    });
 
     for (string, 0..) |letter, i| {
         const template = text.largeLetter(letter);
