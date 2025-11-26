@@ -7,11 +7,10 @@ const LargeLetter = *const [HEIGHT * WIDTH + (HEIGHT - 1)]u8;
 
 pub fn translateSymbol(symbol: u8, ascii: bool) u21 {
     return if (ascii) switch (symbol) {
-        '#' => '%',
+        '#' => '@',
         ',' => ',',
         '\'' => '\'',
-        ']' => '%',
-        '[' => '%',
+        ']', '[' => ':',
         '0', '1' => '`',
         '2', '3' => '.',
         '4'...'7' => '@',
