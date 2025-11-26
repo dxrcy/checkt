@@ -1,5 +1,7 @@
 # checkt -- Terminal Chess Game
 
+Requires Zig `0.15.2`.
+
 ```sh
 # Play singleplayer
 zig build run
