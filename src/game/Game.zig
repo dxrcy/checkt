@@ -25,6 +25,9 @@ pub const Role = enum {
 };
 
 pub const State = union(enum) {
+    connect: struct {
+        button_focus: usize,
+    },
     start: struct {},
     play: struct {
         active: Side,
@@ -124,9 +127,9 @@ pub const Input = enum(u8) {
 pub fn new(role: ?Role) Self {
     return Self{
         .role = role,
-        .state = .{
-            .start = .{},
-        },
+        .state = .{ .connect = .{
+            .button_focus = 0,
+        } },
     };
 }
 
@@ -161,12 +164,15 @@ pub fn handleInput(
     switch (input) {
         .quit => return true,
 
-        .left => if (self.state == .play) moveFocus(self, .left),
-        .right => if (self.state == .play) moveFocus(self, .right),
-        .up => if (self.state == .play) moveFocus(self, .up),
-        .down => if (self.state == .play) moveFocus(self, .down),
+        .left => moveFocus(self, .left),
+        .right => moveFocus(self, .right),
+        .up => moveFocus(self, .up),
+        .down => moveFocus(self, .down),
 
         .confirm => switch (self.state) {
+            .connect => {
+                self.state = .{ .start = .{} };
+            },
             .start => {
                 self.resetGame();
             },
@@ -238,12 +244,32 @@ pub fn advanceNextTurn(self: *Self) void {
     }
 }
 
-fn moveFocus(self: *Self, direction: enum { left, right, up, down }) void {
-    const player = switch (self.state) {
-        .play => |*play| &play.player_local,
-        else => unreachable,
-    };
+const Direction = enum { left, right, up, down };
 
+fn moveFocus(self: *Self, direction: Direction) void {
+    switch (self.state) {
+        .connect => |*connect| {
+            // TODO: Move this scope to new function
+            const BUTTON_COUNT = 3;
+
+            switch (direction) {
+                .left, .right => {},
+                .up => if (connect.button_focus > 0) {
+                    connect.button_focus -= 1;
+                },
+                .down => if (connect.button_focus < BUTTON_COUNT - 1) {
+                    connect.button_focus += 1;
+                },
+            }
+        },
+        .play => |*play| {
+            movePlayerFocus(direction, &play.player_local);
+        },
+        else => {},
+    }
+}
+
+fn movePlayerFocus(direction: Direction, player: *Player) void {
     const tile = &player.focus;
 
     switch (direction) {

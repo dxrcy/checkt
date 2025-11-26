@@ -116,18 +116,18 @@ const colors = struct {
 pub fn render(self: *Self, game: *const Game) void {
     self.getForeFrame().clear();
 
-    if (game.state.getBoard()) |board| {
-        // Board tile
-        for (0..Board.SIZE) |rank| {
-            for (0..Board.SIZE) |file| {
-                const tile = Tile{ .rank = @intCast(rank), .file = @intCast(file) };
-                self.renderRectSolid(self.getTileRect(tile), .{
-                    .char = ' ',
-                    .bg = getTileColor(tile, false),
-                });
-            }
+    // Board tile
+    for (0..Board.SIZE) |rank| {
+        for (0..Board.SIZE) |file| {
+            const tile = Tile{ .rank = @intCast(rank), .file = @intCast(file) };
+            self.renderRectSolid(self.getTileRect(tile), .{
+                .char = ' ',
+                .bg = getTileColor(tile, false),
+            });
         }
+    }
 
+    if (game.state.getBoard()) |board| {
         // Board piece icons
         for (0..Board.SIZE) |rank| {
             for (0..Board.SIZE) |file| {
@@ -196,18 +196,74 @@ pub fn render(self: *Self, game: *const Game) void {
     }
 
     switch (game.state) {
-        .start => {
-            // Empty board
-            for (0..Board.SIZE) |rank| {
-                for (0..Board.SIZE) |file| {
-                    const tile = Tile{ .rank = @intCast(rank), .file = @intCast(file) };
-                    self.renderRectSolid(self.getTileRect(tile), .{
-                        .char = ' ',
-                        .bg = getTileColor(tile, false),
-                    });
-                }
-            }
+        .connect => |*connect| {
+            self.renderTextLarge(
+                &[_][]const u8{
+                    "chess",
+                },
+                .center_x,
+                if (self.small)
+                    .{ .y = 3 }
+                else
+                    .{ .y = 8 },
+            );
 
+            const ORIGIN =
+                if (self.small)
+                    Position{ .y = 10, .x = 0 }
+                else
+                    Position{ .y = 17, .x = 0 };
+            const SIZE =
+                if (self.small)
+                    Position{ .y = 3, .x = 20 }
+                else
+                    Position{ .y = 3, .x = 24 };
+            const GAP_Y: usize = if (self.small) 1 else 2;
+            const PADDING_Y = 1;
+
+            const lines = [_][]const u8{
+                "Singleplayer",
+                "Host a game",
+                "Join a game",
+            };
+
+            for (lines, 0..) |line, i| {
+                const focus = (i == connect.button_focus);
+
+                const rect = Rect{
+                    .position = ORIGIN.add(.{
+                        .y = (SIZE.y + GAP_Y) * i,
+                    }),
+                    .size = SIZE,
+                };
+
+                const aligned = Alignment.applyRect(.center_x, self.small, rect);
+
+                // TODO: The following can be extracted as a `renderButton`
+                // method
+
+                self.renderRectSolid(aligned, .{
+                    .bg = if (focus) .bright_white else .white,
+                });
+                self.renderRectHighlight(aligned, .{
+                    .fg = if (focus) .white else .bright_white,
+                });
+
+                self.renderTextLineNormal(
+                    line,
+                    .center_x,
+                    rect.position.add(.{
+                        .y = PADDING_Y,
+                    }),
+                    .{
+                        .fg = .black,
+                        .bold = (focus),
+                    },
+                );
+            }
+        },
+
+        .start => {
             self.renderTextLarge(
                 &[_][]const u8{
                     "chess",
@@ -395,11 +451,22 @@ const Alignment = enum {
 
         return origin.add(offset);
     }
+
+    pub fn applyRect(self: Alignment, small: bool, rect: Rect) Rect {
+        return Rect{
+            .position = self.apply(
+                small,
+                rect.position,
+                rect.size,
+            ),
+            .size = rect.size,
+        };
+    }
 };
 
 fn renderTextLineNormal(
     self: *Self,
-    string: []const u8,
+    line: []const u8,
     alignment: Alignment,
     offset: Position,
     options: Cell.Options,
@@ -407,10 +474,10 @@ fn renderTextLineNormal(
     var frame = self.getForeFrame();
 
     const origin = alignment.apply(self.small, offset, .{
-        .x = string.len,
+        .x = line.len,
     });
 
-    for (string, 0..) |char, x| {
+    for (line, 0..) |char, x| {
         frame.set(
             origin.add(.{ .x = x }),
             (Cell.Options{
@@ -428,9 +495,9 @@ fn renderTextLarge(
     alignment: Alignment,
     offset: Position,
 ) void {
-    for (lines, 0..) |string, row| {
-        self.renderTextLineLine(
-            string,
+    for (lines, 0..) |line, row| {
+        self.renderTextLine(
+            line,
             alignment,
             offset.add(.{
                 .y = row * (text.HEIGHT + text.GAP_Y),
@@ -439,20 +506,20 @@ fn renderTextLarge(
     }
 }
 
-fn renderTextLineLine(
+fn renderTextLine(
     self: *Self,
-    string: []const u8,
+    line: []const u8,
     alignment: Alignment,
     offset: Position,
 ) void {
     var frame = self.getForeFrame();
 
     const origin = alignment.apply(self.small, offset, .{
-        .x = text.WIDTH * string.len +
-            text.GAP_X * (string.len -| 1),
+        .x = text.WIDTH * line.len +
+            text.GAP_X * (line.len -| 1),
     });
 
-    for (string, 0..) |letter, i| {
+    for (line, 0..) |letter, i| {
         const template = text.largeLetter(letter);
 
         for (0..text.HEIGHT) |y| {
