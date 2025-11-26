@@ -20,8 +20,8 @@ cells: [HEIGHT * WIDTH]Cell,
 const Char = u21;
 
 pub const Position = struct {
-    y: usize,
-    x: usize,
+    y: usize = 0,
+    x: usize = 0,
 
     pub fn isInBounds(self: Position) bool {
         return self.y < HEIGHT and self.x < WIDTH;

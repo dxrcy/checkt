@@ -214,18 +214,15 @@ pub fn render(self: *Self, game: *const Game) void {
                 },
                 .center_x,
                 if (self.small)
-                    .{ .y = 8, .x = 0 }
+                    .{ .y = 8 }
                 else
-                    .{ .y = 16, .x = 0 },
+                    .{ .y = 16 },
             );
 
             self.renderTextLineNormal(
                 "Press SPACE to start",
                 .center_x,
-                .{
-                    .y = if (self.small) 15 else 23,
-                    .x = 0,
-                },
+                .{ .y = if (self.small) 15 else 23 },
                 .{ .bold = true },
             );
         },
@@ -238,9 +235,9 @@ pub fn render(self: *Self, game: *const Game) void {
                 },
                 .center_x,
                 if (self.small)
-                    .{ .y = 6, .x = 0 }
+                    .{ .y = 6 }
                 else
-                    .{ .y = 14, .x = 0 },
+                    .{ .y = 14 },
             );
 
             self.renderTextLineNormal(
@@ -249,10 +246,7 @@ pub fn render(self: *Self, game: *const Game) void {
                 else
                     "Red wins",
                 .center_x,
-                .{
-                    .y = if (self.small) 18 else 26,
-                    .x = 0,
-                },
+                .{ .y = if (self.small) 18 else 26 },
                 .{ .bold = true },
             );
         },
@@ -393,12 +387,8 @@ const Alignment = enum {
         const screen_width = Board.SIZE * (tile_width);
 
         const origin: Position = switch (self) {
-            .normal => .{
-                .y = 0,
-                .x = 0,
-            },
+            .normal => .{},
             .center_x => .{
-                .y = 0,
                 .x = std.math.divCeil(usize, screen_width - size.x, 2) catch 0,
             },
         };
@@ -417,16 +407,12 @@ fn renderTextLineNormal(
     var frame = self.getForeFrame();
 
     const origin = alignment.apply(self.small, offset, .{
-        .y = 0,
         .x = string.len,
     });
 
     for (string, 0..) |char, x| {
         frame.set(
-            origin.add(.{
-                .y = 0,
-                .x = x,
-            }),
+            origin.add(.{ .x = x }),
             (Cell.Options{
                 .char = char,
                 .fg = .white,
@@ -448,7 +434,6 @@ fn renderTextLarge(
             alignment,
             offset.add(.{
                 .y = row * (text.HEIGHT + text.GAP_Y),
-                .x = 0,
             }),
         );
     }
@@ -463,7 +448,6 @@ fn renderTextLineLine(
     var frame = self.getForeFrame();
 
     const origin = alignment.apply(self.small, offset, .{
-        .y = 0,
         .x = text.WIDTH * string.len +
             text.GAP_X * (string.len -| 1),
     });
@@ -603,7 +587,6 @@ fn renderRectHighlight(
     for (1..rect.size.x - 1) |x| {
         frame.set(
             rect.position.add(.{
-                .y = 0,
                 .x = x,
             }),
             (Cell.Options{ .char = self.getEdge(.top) }).join(options),
@@ -621,7 +604,6 @@ fn renderRectHighlight(
         frame.set(
             rect.position.add(.{
                 .y = y,
-                .x = 0,
             }),
             (Cell.Options{ .char = self.getEdge(.left) }).join(options),
         );
