@@ -44,32 +44,6 @@ pub fn run() !u8 {
         return 1;
     };
 
-    log.info("role = {?}", .{args.role});
-
-    var connection = if (args.role) |role| switch (role) {
-        .host => try Connection.newServer(),
-        .join => Connection.newClient(args.port orelse unreachable),
-    } else Connection.newLocal();
-
-    // TODO: Move to ui
-    if (args.role == .host) {
-        log.info("hosting: {}", .{connection.port});
-        output.stdout.print("hosting on port {}.\n", .{connection.port});
-        output.stdout.print("waiting for client to join...\n", .{});
-        output.stdout.flush();
-    } else if (args.role == .join) {
-        log.info("joining: {}", .{connection.port});
-        output.stdout.print("joining server...\n", .{});
-        output.stdout.flush();
-    }
-
-    try connection.init();
-    defer connection.deinit();
-
-    if (args.role != null) {
-        log.info("remote connected", .{});
-    }
-
     var ui = Ui.new(args.ascii, args.small);
     try ui.enter();
     // Restore terminal, if anything goes wrong
@@ -80,8 +54,8 @@ pub fn run() !u8 {
 
     handlers.registerSignalHandlers();
 
-    var game = Game.new(args.role);
-    const is_multiplayer = game.role != null;
+    var game = Game.init();
+    defer game.deinit();
 
     log.info("starting game loop", .{});
     {
@@ -90,10 +64,6 @@ pub fn run() !u8 {
 
         var render_channel = Channel(RenderEvent).empty;
         var send_channel = Channel(Game.Message).empty;
-
-        if (!is_multiplayer) {
-            send_channel.discard = true;
-        }
 
         var last_ping = try Instant.now();
 
@@ -114,22 +84,18 @@ pub fn run() !u8 {
                 .send_channel = &send_channel,
             }),
 
-            if (!is_multiplayer) null else //
             try Worker.spawn("send", .detach, sendWorker, .{
-                .connection = &connection,
+                .game = &game_mutex,
                 .send_channel = &send_channel,
             }),
 
-            if (!is_multiplayer) null else //
             try Worker.spawn("recv", .detach, recvWorker, .{
                 .game = &game_mutex,
-                .connection = &connection,
                 .render_channel = &render_channel,
                 .send_channel = &send_channel,
                 .last_ping = &last_ping,
             }),
 
-            if (!is_multiplayer) null else //
             try Worker.spawn("ping", .detach, pingWorker, .{
                 .send_channel = &send_channel,
                 .last_ping = &last_ping,
@@ -269,20 +235,18 @@ fn inputFromByte(byte: u8) ?Game.Input {
 }
 
 fn sendWorker(shared: struct {
-    connection: *Connection,
+    game: *MutexPtr(Game),
     send_channel: *Channel(Game.Message),
 }) !void {
-    var connection_mutex = MutexPtr(Connection).new(shared.connection);
-
     while (true) {
         const message = shared.send_channel.recv();
-        _ = try std.Thread.spawn(.{}, sendWorkerAction, .{ &connection_mutex, message });
+        _ = try std.Thread.spawn(.{}, sendWorkerAction, .{ shared.game, message });
     }
 }
 
 // NOTE: This is useful for simulating latency without blocking subsequent messages
 fn sendWorkerAction(
-    connection_mutex: *MutexPtr(Connection),
+    game_mutex: *MutexPtr(Game),
     message: Game.Message,
 ) void {
     const scoped = log.scoped(.send);
@@ -293,10 +257,10 @@ fn sendWorkerAction(
         scoped.info("{t}", .{message});
     }
 
-    const connection = connection_mutex.lock();
-    defer connection_mutex.unlock();
+    const game = game_mutex.lock();
+    defer game_mutex.unlock();
 
-    connection.send(message) catch |err| switch (err) {
+    game.connection.send(message) catch |err| switch (err) {
         error.WriteFailed => {
             scoped.warn("write failed", .{});
         },
@@ -305,7 +269,6 @@ fn sendWorkerAction(
 
 fn recvWorker(shared: struct {
     game: *MutexPtr(Game),
-    connection: *Connection,
     render_channel: *Channel(RenderEvent),
     send_channel: *Channel(Game.Message),
     last_ping: *Instant,
@@ -313,7 +276,10 @@ fn recvWorker(shared: struct {
     const scoped = log.scoped(.recv);
 
     while (true) {
-        const message = shared.connection.recv() catch |err| switch (err) {
+        // FIXME: Bruh
+        const game = shared.game.object;
+
+        const message = game.connection.recv() catch |err| switch (err) {
             error.Malformed => {
                 scoped.warn("malformed message", .{});
                 continue;
@@ -439,6 +405,11 @@ fn pingWorker(shared: struct {
     send_channel: *Channel(Game.Message),
     last_ping: *Instant,
 }) !void {
+    // FIXME: Wait for connection to be created
+    if (true) {
+        return;
+    }
+
     const PING_NS = 400 * time.ns_per_ms;
     const TIMEOUT_NS = 4 * time.ns_per_s;
 

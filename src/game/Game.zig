@@ -15,11 +15,12 @@ pub const Piece = Board.Piece;
 pub const Tile = Board.Tile;
 const Move = @import("moves.zig").Move;
 
-// TODO: Use 3-variant enum?
-role: ?Role,
+role: Role,
+connection: Connection,
 state: State,
 
 pub const Role = enum {
+    single,
     host,
     join,
 };
@@ -124,13 +125,18 @@ pub const Input = enum(u8) {
     debug_kill_remote,
 };
 
-pub fn new(role: ?Role) Self {
+pub fn init() Self {
     return Self{
-        .role = role,
+        .role = .single,
+        .connection = Connection.newLocal(),
         .state = .{ .connect = .{
             .button_focus = 0,
         } },
     };
+}
+
+pub fn deinit(self: *Self) void {
+    self.connection.deinit();
 }
 
 pub fn resetGame(self: *Self) void {
@@ -145,7 +151,7 @@ pub fn resetGame(self: *Self) void {
             .focus = if (self.role == .join) FOCUS_BLACK else FOCUS_WHITE,
             .selected = null,
         },
-        .player_remote = if (self.role == null) null else .{
+        .player_remote = if (self.role == .single) null else .{
             .focus = if (self.role == .join) FOCUS_WHITE else FOCUS_BLACK,
             .selected = null,
         },
@@ -170,7 +176,34 @@ pub fn handleInput(
         .down => moveFocus(self, .down),
 
         .confirm => switch (self.state) {
-            .connect => {
+            .connect => |connect| {
+                self.role = switch (connect.button_focus) {
+                    0 => .single,
+                    1 => .host,
+                    2 => .join,
+                    else => unreachable,
+                };
+                // TODO: Move to new method
+                switch (self.role) {
+                    .single => {
+                        self.connection = Connection.newLocal();
+                    },
+                    .host => {
+                        self.connection = Connection.newServer() catch |err|
+                            std.debug.panic("{}", .{err});
+                        log.info("hosting: {}", .{self.connection.port});
+                        self.connection.init() catch |err|
+                            std.debug.panic("{}", .{err});
+                        log.info("remote connected", .{});
+                    },
+                    .join => {
+                        const port = 5100;
+                        self.connection = Connection.newClient(port);
+                        self.connection.init() catch |err|
+                            std.debug.panic("{}", .{err});
+                        log.info("remote connected", .{});
+                    },
+                }
                 self.state = .{ .start = .{} };
             },
             .start => {
@@ -424,7 +457,7 @@ pub fn getLocalSide(self: *const Self) Side {
 pub fn isLocalSideActive(self: *const Self) bool {
     switch (self.state) {
         .play => |*play| {
-            return self.role == null or
+            return self.role == .single or
                 play.active == self.getLocalSide();
         },
         else => return false,

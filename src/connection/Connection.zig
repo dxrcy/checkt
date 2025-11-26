@@ -13,6 +13,8 @@ const PORT_RANGE = 400;
 const WRITE_BUFFER_SIZE = 1024;
 const READ_BUFFER_SIZE = 1024;
 
+// TODO: Rename "local" to "single"
+
 /// `true` if then connection is not created, and methods are no-ops.
 local: bool,
 

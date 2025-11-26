@@ -311,7 +311,7 @@ pub fn render(self: *Self, game: *const Game) void {
         .play => |play| {
             const player = play.player_local;
 
-            const side: Side = if (game.role == null)
+            const side: Side = if (game.role == .single)
                 play.active
             else
                 (if (game.role == .host) .white else .black);
