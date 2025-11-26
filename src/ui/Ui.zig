@@ -247,6 +247,7 @@ pub fn render(self: *Self, game: *const Game) void {
                 });
                 self.renderRectHighlight(aligned, .{
                     .fg = if (focus) .white else .bright_white,
+                    .bold = true,
                 });
 
                 self.renderTextLineNormal(
@@ -266,7 +267,7 @@ pub fn render(self: *Self, game: *const Game) void {
         .start => {
             self.renderTextLarge(
                 &[_][]const u8{
-                    "chess",
+                    "ready?",
                 },
                 .center_x,
                 if (self.small)
