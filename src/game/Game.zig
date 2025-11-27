@@ -29,6 +29,7 @@ pub const State = union(enum) {
     connect: struct {
         button_focus: usize,
     },
+    host_wait: struct {},
     start: struct {},
     play: struct {
         active: Side,
@@ -106,6 +107,13 @@ pub const Message = union(enum) {
     };
 };
 
+pub const ConnectionRequest = union(enum) {
+    host: struct {},
+    join: struct {
+        port: u16,
+    },
+};
+
 // TODO: Do something better -- i forgot what
 pub const Input = enum(u8) {
     quit,
@@ -163,7 +171,8 @@ pub fn handleInput(
     self: *Self,
     input: Input,
     ui_mutex: *MutexPtr(Ui),
-    channel: *Channel(Message),
+    send_channel: *Channel(Message),
+    connection_req_channel: *Channel(ConnectionRequest),
 ) bool {
     log.scoped(.input).info("{t}", .{input});
 
@@ -187,36 +196,39 @@ pub fn handleInput(
                 switch (self.role) {
                     .single => {
                         self.connection = Connection.newLocal();
+                        self.state = .{ .start = .{} };
                     },
+
                     .host => {
-                        self.connection = Connection.newServer() catch |err|
-                            std.debug.panic("{}", .{err});
-                        log.info("hosting: {}", .{self.connection.port});
-                        self.connection.init() catch |err|
-                            std.debug.panic("{}", .{err});
-                        log.info("remote connected", .{});
+                        connection_req_channel.send(.{
+                            .host = .{},
+                        });
                     },
+
                     .join => {
                         const port = 5100;
-                        self.connection = Connection.newClient(port);
-                        self.connection.init() catch |err|
-                            std.debug.panic("{}", .{err});
-                        log.info("remote connected", .{});
+                        connection_req_channel.send(.{
+                            .join = .{ .port = port },
+                        });
                     },
                 }
-                self.state = .{ .start = .{} };
             },
+            .host_wait => {},
             .start => {
                 self.resetGame();
             },
             .play => {
-                selectOrMove(self, false, channel);
+                selectOrMove(self, false, send_channel);
             },
             .win => {
                 self.state = .{ .start = .{} };
             },
         },
+
         .cancel => switch (self.state) {
+            .host_wait => {
+                self.state = .{ .connect = .{ .button_focus = 0 } };
+            },
             .play => |*play| {
                 play.player_local.selected = null;
             },
@@ -231,7 +243,7 @@ pub fn handleInput(
         .debug_switch_side => switch (self.state) {
             .play => |*play| {
                 play.active = play.active.flip();
-                channel.send(.{ .debug_set_active = play.active });
+                send_channel.send(.{ .debug_set_active = play.active });
 
                 play.player_local.selected = null;
                 if (play.player_remote) |*player_remote| {
@@ -242,7 +254,7 @@ pub fn handleInput(
         },
 
         .debug_force_move => if (self.state == .play) {
-            selectOrMove(self, true, channel);
+            selectOrMove(self, true, send_channel);
         },
 
         .debug_toggle_info => {
@@ -253,7 +265,7 @@ pub fn handleInput(
         },
 
         .debug_kill_remote => {
-            channel.send(.{ .debug_kill_remote = {} });
+            send_channel.send(.{ .debug_kill_remote = {} });
         },
     }
 

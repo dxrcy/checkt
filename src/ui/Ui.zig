@@ -264,6 +264,26 @@ pub fn render(self: *Self, game: *const Game) void {
             }
         },
 
+        .host_wait => {
+            self.renderTextLarge(
+                &[_][]const u8{
+                    "wait",
+                },
+                .center_x,
+                if (self.small)
+                    .{ .y = 8 }
+                else
+                    .{ .y = 16 },
+            );
+
+            self.renderTextLineNormal(
+                "For Player 2 to join",
+                .center_x,
+                .{ .y = if (self.small) 15 else 23 },
+                .{ .bold = true },
+            );
+        },
+
         .start => {
             self.renderTextLarge(
                 &[_][]const u8{
@@ -443,6 +463,7 @@ const Alignment = enum {
 
         const screen_width = Board.SIZE * (tile_width);
 
+        // FIXME: Possible overflow in calculation
         const origin: Position = switch (self) {
             .normal => .{},
             .center_x => .{

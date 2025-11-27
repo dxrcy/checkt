@@ -63,6 +63,7 @@ pub fn run() !u8 {
         var ui_mutex = MutexPtr(Ui).new(&ui);
 
         var render_channel = Channel(RenderEvent).empty;
+        var connection_req_channel = Channel(Game.ConnectionRequest).empty;
         var send_channel = Channel(Game.Message).empty;
 
         var last_ping = try Instant.now();
@@ -81,7 +82,13 @@ pub fn run() !u8 {
                 .game = &game_mutex,
                 .ui = &ui_mutex,
                 .render_channel = &render_channel,
+                .connection_req_channel = &connection_req_channel,
                 .send_channel = &send_channel,
+            }),
+
+            try Worker.spawn("connection", .detach, connectionWorker, .{
+                .game = &game_mutex,
+                .connection_req_channel = &connection_req_channel,
             }),
 
             try Worker.spawn("send", .detach, sendWorker, .{
@@ -117,6 +124,7 @@ pub fn run() !u8 {
     return 0;
 }
 
+// TODO: Move
 pub const RenderEvent = enum {
     redraw,
     update,
@@ -155,6 +163,7 @@ fn inputWorker(shared: struct {
     game: *MutexPtr(Game),
     ui: *MutexPtr(Ui),
     render_channel: *Channel(RenderEvent),
+    connection_req_channel: *Channel(Game.ConnectionRequest),
     send_channel: *Channel(Game.Message),
 }) void {
     var previous_state: Game.State = undefined;
@@ -178,6 +187,7 @@ fn inputWorker(shared: struct {
             input,
             shared.ui,
             shared.send_channel,
+            shared.connection_req_channel,
         )) {
             break;
         }
@@ -232,6 +242,60 @@ fn inputFromByte(byte: u8) ?Game.Input {
 
         else => return null,
     };
+}
+
+fn connectionWorker(
+    shared: struct {
+        game: *MutexPtr(Game),
+        connection_req_channel: *Channel(Game.ConnectionRequest),
+        // connection_res_channel: *Channel(Game.ConnectionResponse),
+    },
+) !void {
+    while (true) {
+        const event = shared.connection_req_channel.recv();
+
+        @import("env/handlers.zig").globals.RENDER_CHANNEL.?.send(.redraw);
+
+        // FIXME: Bruh
+        const game = shared.game.object;
+
+        switch (event) {
+            .host => {
+                log.info("creating server", .{});
+                game.connection = Connection.newServer() catch |err| {
+                    std.debug.panic("{}", .{err});
+                };
+
+                log.info("hosting server: {}", .{game.connection.port});
+                game.state = .{ .host_wait = .{} };
+                // FIXME: Bruh
+                @import("env/handlers.zig").globals.RENDER_CHANNEL.?.send(.redraw);
+
+                log.info("accepting client", .{});
+                game.connection.init() catch |err| {
+                    std.debug.panic("{}", .{err});
+                };
+
+                log.info("client connected", .{});
+                game.state = .{ .start = .{} };
+                @import("env/handlers.zig").globals.RENDER_CHANNEL.?.send(.redraw);
+            },
+
+            .join => |join_connect| {
+                log.info("creating client: {}", .{join_connect.port});
+                game.connection = Connection.newClient(join_connect.port);
+
+                log.info("connecting to server", .{});
+                game.connection.init() catch |err| {
+                    std.debug.panic("{}", .{err});
+                };
+
+                log.info("server connected", .{});
+                game.state = .{ .start = .{} };
+                @import("env/handlers.zig").globals.RENDER_CHANNEL.?.send(.redraw);
+            },
+        }
+    }
 }
 
 fn sendWorker(shared: struct {
