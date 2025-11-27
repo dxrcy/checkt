@@ -277,7 +277,7 @@ fn connectionWorker(
                 };
 
                 log.info("client connected", .{});
-                game.state = .{ .start = .{} };
+                game.resetGame();
                 @import("env/handlers.zig").globals.RENDER_CHANNEL.?.send(.redraw);
             },
 
@@ -291,7 +291,7 @@ fn connectionWorker(
                 };
 
                 log.info("server connected", .{});
-                game.state = .{ .start = .{} };
+                game.resetGame();
                 @import("env/handlers.zig").globals.RENDER_CHANNEL.?.send(.redraw);
             },
         }

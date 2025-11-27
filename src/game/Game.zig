@@ -192,11 +192,12 @@ pub fn handleInput(
                     2 => .join,
                     else => unreachable,
                 };
+
                 // TODO: Move to new method
                 switch (self.role) {
                     .single => {
                         self.connection = Connection.newLocal();
-                        self.state = .{ .start = .{} };
+                        self.resetGame();
                     },
 
                     .host => {
